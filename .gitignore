@@ -1,0 +1,32 @@
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+**/build/
+local.properties
+
+# Android build artifacts
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Logs
+*.log
+
+# Signing keys and certs
+*.jks
+*.keystore
+*.pem
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local generated schemas
+app/schemas/
