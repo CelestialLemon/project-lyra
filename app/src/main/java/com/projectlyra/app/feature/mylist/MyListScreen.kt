@@ -4,14 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,8 +37,6 @@ fun MyListRoute(
         selectedStatus = selectedStatus,
         items = items,
         onStatusChange = viewModel::onStatusSelected,
-        onItemStatusChange = viewModel::onItemStatusChange,
-        onItemRemove = viewModel::onItemRemoved,
         onOpenDetails = onOpenDetails,
     )
 }
@@ -51,8 +47,6 @@ private fun MyListScreen(
     selectedStatus: WatchStatus,
     items: List<TrackedItem>,
     onStatusChange: (WatchStatus) -> Unit,
-    onItemStatusChange: (TrackedItem, WatchStatus) -> Unit,
-    onItemRemove: (TrackedItem) -> Unit,
     onOpenDetails: (TrackedItem) -> Unit,
 ) {
     LazyColumn(
@@ -108,8 +102,6 @@ private fun MyListScreen(
             items(items, key = { it.localId }) { item ->
                 TrackedItemCard(
                     item = item,
-                    onStatusChange = { newStatus -> onItemStatusChange(item, newStatus) },
-                    onRemove = { onItemRemove(item) },
                     onOpenDetails = { onOpenDetails(item) },
                 )
             }
@@ -118,45 +110,14 @@ private fun MyListScreen(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun TrackedItemCard(
     item: TrackedItem,
-    onStatusChange: (WatchStatus) -> Unit,
-    onRemove: () -> Unit,
     onOpenDetails: () -> Unit,
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    PosterCard(
+        title = item.title,
+        posterPath = item.posterPath,
         modifier = Modifier.fillMaxWidth(),
-    ) {
-        PosterCard(
-            title = item.title,
-            subtitle = "${item.mediaType.name.lowercase()} · ${item.releaseOrAirDate}",
-            posterPath = item.posterPath,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onOpenDetails,
-        )
-
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            WatchStatus.entries.forEach { status ->
-                StatusChip(
-                    text = status.label,
-                    selected = item.status == status,
-                    onClick = {
-                        if (item.status != status) {
-                            onStatusChange(status)
-                        }
-                    },
-                )
-            }
-        }
-
-        OutlinedButton(onClick = onRemove) {
-            Text(text = "Remove from List")
-        }
-    }
+        onClick = onOpenDetails,
+    )
 }

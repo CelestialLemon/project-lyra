@@ -146,6 +146,11 @@ class LibraryRepository(
         userEntryDao.deleteByMediaItemId(mediaItemId)
     }
 
+    suspend fun clearTrackedStatus(tmdbId: Int, mediaType: MediaType) {
+        val mediaItem = mediaDao.findByTmdbAndType(tmdbId = tmdbId, mediaType = mediaType.name) ?: return
+        userEntryDao.deleteByMediaItemId(mediaItem.id)
+    }
+
     suspend fun getTvReminderCandidates(): List<ReminderTrackedShow> {
         val eligibleStatuses = listOf(
             WatchStatus.WATCHING.name,

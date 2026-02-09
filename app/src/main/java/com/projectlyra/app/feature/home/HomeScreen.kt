@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,9 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.projectlyra.app.core.model.TrendingItem
-import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.ui.components.PosterCard
-import com.projectlyra.app.ui.components.StatusChip
 
 @Composable
 fun HomeRoute(
@@ -44,8 +40,6 @@ fun HomeRoute(
     HomeScreen(
         uiState = uiState,
         onRetry = viewModel::retry,
-        onStatusSelected = viewModel::onStatusSelected,
-        trackedStatusFor = viewModel::trackedStatusFor,
         onOpenDetails = onOpenDetails,
     )
 }
@@ -54,8 +48,6 @@ fun HomeRoute(
 private fun HomeScreen(
     uiState: HomeUiState,
     onRetry: () -> Unit,
-    onStatusSelected: (TrendingItem, WatchStatus) -> Unit,
-    trackedStatusFor: (TrendingItem) -> WatchStatus?,
     onOpenDetails: (TrendingItem) -> Unit,
 ) {
     if (uiState.isLoading && uiState.trending.isEmpty()) {
@@ -151,10 +143,8 @@ private fun HomeScreen(
             item {
                 val hero = uiState.trending.firstOrNull()
                 if (hero != null) {
-                    TrendingCardWithActions(
+                    TrendingCard(
                         item = hero,
-                        trackedStatus = trackedStatusFor(hero),
-                        onStatusSelected = { status -> onStatusSelected(hero, status) },
                         onOpenDetails = { onOpenDetails(hero) },
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
@@ -176,10 +166,8 @@ private fun HomeScreen(
                             contentPadding = PaddingValues(horizontal = 16.dp),
                         ) {
                             items(uiState.trending.drop(1)) { item ->
-                                TrendingCardWithActions(
+                                TrendingCard(
                                     item = item,
-                                    trackedStatus = trackedStatusFor(item),
-                                    onStatusSelected = { status -> onStatusSelected(item, status) },
                                     onOpenDetails = { onOpenDetails(item) },
                                     modifier = Modifier.fillParentMaxWidth(0.78f),
                                 )
@@ -196,44 +184,18 @@ private fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TrendingCardWithActions(
+private fun TrendingCard(
     item: TrendingItem,
-    trackedStatus: WatchStatus?,
-    onStatusSelected: (WatchStatus) -> Unit,
     onOpenDetails: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    PosterCard(
+        title = item.title,
+        posterPath = item.posterPath,
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        PosterCard(
-            title = item.title,
-            subtitle = item.releaseOrAirDate,
-            posterPath = item.posterPath,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onOpenDetails,
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            WatchStatus.entries.forEach { status ->
-                StatusChip(
-                    text = status.label,
-                    selected = trackedStatus == status,
-                    onClick = {
-                        if (trackedStatus != status) {
-                            onStatusSelected(status)
-                        }
-                    },
-                )
-            }
-        }
-    }
+        onClick = onOpenDetails,
+    )
 }
 
 @Composable

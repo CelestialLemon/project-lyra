@@ -3,8 +3,6 @@ package com.projectlyra.app.feature.search
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,16 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.TrendingItem
-import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.ui.components.PosterCard
-import com.projectlyra.app.ui.components.StatusChip
 
 @Composable
 fun SearchRoute(
@@ -45,8 +39,6 @@ fun SearchRoute(
         uiState = uiState,
         onQueryChange = viewModel::onQueryChange,
         onRetry = viewModel::retry,
-        onStatusSelected = viewModel::onStatusSelected,
-        trackedStatusFor = viewModel::trackedStatusFor,
         onOpenDetails = onOpenDetails,
     )
 }
@@ -56,8 +48,6 @@ private fun SearchScreen(
     uiState: SearchUiState,
     onQueryChange: (String) -> Unit,
     onRetry: () -> Unit,
-    onStatusSelected: (TrendingItem, WatchStatus) -> Unit,
-    trackedStatusFor: (TrendingItem) -> WatchStatus?,
     onOpenDetails: (TrendingItem) -> Unit,
 ) {
     LazyColumn(
@@ -147,8 +137,6 @@ private fun SearchScreen(
             ) { item ->
                 SearchResultCard(
                     item = item,
-                    trackedStatus = trackedStatusFor(item),
-                    onStatusSelected = { status -> onStatusSelected(item, status) },
                     onOpenDetails = { onOpenDetails(item) },
                 )
             }
@@ -157,61 +145,14 @@ private fun SearchScreen(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun SearchResultCard(
     item: TrendingItem,
-    trackedStatus: WatchStatus?,
-    onStatusSelected: (WatchStatus) -> Unit,
     onOpenDetails: () -> Unit,
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    PosterCard(
+        title = item.title,
+        posterPath = item.posterPath,
         modifier = Modifier.fillMaxWidth(),
-    ) {
-        PosterCard(
-            title = item.title,
-            subtitle = item.subtitle(),
-            posterPath = item.posterPath,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onOpenDetails,
-        )
-        if (item.overview.isNotBlank()) {
-            Text(
-                text = item.overview,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            WatchStatus.entries.forEach { status ->
-                StatusChip(
-                    text = status.label,
-                    selected = trackedStatus == status,
-                    onClick = {
-                        if (trackedStatus != status) {
-                            onStatusSelected(status)
-                        }
-                    },
-                )
-            }
-        }
-    }
-}
-
-private fun TrendingItem.subtitle(): String {
-    val typeLabel = when (mediaType) {
-        MediaType.MOVIE -> "movie"
-        MediaType.TV -> "tv"
-    }
-    return if (releaseOrAirDate.isBlank()) {
-        typeLabel
-    } else {
-        "$typeLabel · $releaseOrAirDate"
-    }
+        onClick = onOpenDetails,
+    )
 }

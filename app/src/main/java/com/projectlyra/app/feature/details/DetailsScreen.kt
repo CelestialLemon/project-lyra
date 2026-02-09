@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,13 +22,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,10 +45,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.projectlyra.app.core.yearOrBlank
 import com.projectlyra.app.core.model.MediaDetails
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.WatchStatus
-import com.projectlyra.app.ui.components.StatusChip
 
 @Composable
 fun DetailsRoute(
@@ -67,7 +71,7 @@ private fun DetailsScreen(
     uiState: DetailsUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onStatusSelected: (WatchStatus) -> Unit,
+    onStatusSelected: (WatchStatus?) -> Unit,
 ) {
     val details = uiState.details
     if (uiState.isLoading && details == null) {
@@ -222,9 +226,10 @@ private fun DetailsHeader(
             Text(
                 text = buildString {
                     append(details.mediaType.name.lowercase())
-                    if (details.releaseOrAirDate.isNotBlank()) {
+                    val releaseYear = yearOrBlank(details.releaseOrAirDate)
+                    if (releaseYear.isNotBlank()) {
                         append("  |  ")
-                        append(details.releaseOrAirDate)
+                        append(releaseYear)
                     }
                 },
                 style = MaterialTheme.typography.bodyLarge,
@@ -234,32 +239,49 @@ private fun DetailsHeader(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatusSection(
     selectedStatus: WatchStatus?,
-    onStatusSelected: (WatchStatus) -> Unit,
+    onStatusSelected: (WatchStatus?) -> Unit,
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = "Status",
             style = MaterialTheme.typography.titleLarge,
         )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            WatchStatus.entries.forEach { status ->
-                StatusChip(
-                    text = status.label,
-                    selected = selectedStatus == status,
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = selectedStatus?.label ?: "Not tracked")
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Not tracked") },
                     onClick = {
-                        if (selectedStatus != status) {
-                            onStatusSelected(status)
+                        expanded = false
+                        if (selectedStatus != null) {
+                            onStatusSelected(null)
                         }
                     },
                 )
+                WatchStatus.entries.forEach { status ->
+                    DropdownMenuItem(
+                        text = { Text(status.label) },
+                        onClick = {
+                            expanded = false
+                            if (selectedStatus != status) {
+                                onStatusSelected(status)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -407,12 +429,15 @@ private fun SeasonCard(
                 fontWeight = FontWeight.Medium,
             )
             if (!airDate.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "First aired: $airDate",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val airYear = yearOrBlank(airDate)
+                if (airYear.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "First aired: $airYear",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

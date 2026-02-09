@@ -5,8 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -25,7 +25,6 @@ import coil.compose.AsyncImage
 @Composable
 fun PosterCard(
     title: String,
-    subtitle: String,
     posterPath: String,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
@@ -45,10 +44,10 @@ fun PosterCard(
             AsyncImage(
                 model = "https://image.tmdb.org/t/p/w500$posterPath",
                 contentDescription = title,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp)
+                    .aspectRatio(2f / 3f)
                     .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
                     .background(
                         Brush.verticalGradient(
@@ -61,18 +60,11 @@ fun PosterCard(
             )
             Column(
                 modifier = Modifier.padding(PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp)),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

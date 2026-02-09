@@ -98,15 +98,22 @@ class DetailsViewModel(
         }
     }
 
-    fun onStatusSelected(status: WatchStatus) {
-        val details = _uiState.value.details ?: return
+    fun onStatusSelected(status: WatchStatus?) {
+        val details = _uiState.value.details
+        if (status != null && details == null) {
+            return
+        }
         if (_uiState.value.trackedStatus == status) {
             return
         }
 
         _uiState.update { it.copy(trackedStatus = status) }
         viewModelScope.launch {
-            libraryRepository.upsertTrackedStatus(item = details.asTrendingItem(), status = status)
+            if (status == null) {
+                libraryRepository.clearTrackedStatus(tmdbId = tmdbId, mediaType = mediaType)
+            } else {
+                libraryRepository.upsertTrackedStatus(item = details!!.asTrendingItem(), status = status)
+            }
         }
     }
 
