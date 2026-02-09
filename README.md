@@ -34,7 +34,7 @@ adb logcat
 ```
 
 ## Next Milestones
-1. Add list status updates from Home/Details actions.
-2. Build full Details screen with status controls and season/episode metadata.
+1. Build full Details screen with status controls and season/episode metadata.
+2. Implement Search experience integration (API + UX states + quick actions).
 3. Implement daily WorkManager episode checks + notifications.
 4. Implement JSON backup/restore flow.

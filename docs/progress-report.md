@@ -79,15 +79,14 @@ Status: Completed
   - Room-backed trending cache table and fallback policy (6-hour cache TTL + stale fallback on fetch failure).
 
 ## Milestone 4: Local list/status persistence
-Status: Partially completed
+Status: Completed
 - Implemented:
   - Room entities and DAOs for media + user entries.
   - List screen status chips and filtered view by status.
   - Seed data inserted and displayed in list buckets.
-- Pending:
-  - Add/update status actions from Home/Details.
-  - Prevent duplicate entries and enforce upsert semantics from UI flows.
-  - Edit/remove flows.
+  - Add/update status actions from Home trending cards.
+  - Duplicate-safe status upsert semantics from UI flows (single entry per media item).
+  - Edit/remove flows from My List items.
 
 ## Milestone 5: Detail screen status management
 Status: Not started
@@ -128,8 +127,9 @@ Status: Not started
 - App installs and opens successfully.
 - Home shows cinematic cards powered by live TMDB trending data when API key is configured.
 - Home gracefully handles loading/errors and can retry fetches.
+- Home cards support quick add/update status actions.
 - Bottom tabs are functional for navigation.
-- My List tab shows status-filtered seeded entries.
+- My List tab supports status-filtered entries with inline status edit/remove actions.
 - Settings stores encrypted API key plus reminder/backup toggles.
 
 ## 7. Known Gaps and Risks
@@ -169,14 +169,13 @@ Status: Not started
   - `app/src/main/java/com/projectlyra/app/workers/ReminderScheduler.kt`
 
 ## 9. Recommended Next Implementation Order
-1. Complete Milestone 4 status actions from Home/Details (upsert semantics, duplicate prevention, edit/remove flows).
-2. Build Milestone 5 full Details screen with metadata + status controls + season/episode info.
-3. Implement Milestone 6 search experience integration (API, UX states, quick actions, details navigation).
-4. Implement Milestone 7 reminder business logic + notifications.
-5. Implement Milestone 8 JSON backup/restore.
-6. Add tests for repository, settings, Home fetch/cache logic, and worker behavior.
+1. Build Milestone 5 full Details screen with metadata + status controls + season/episode info.
+2. Implement Milestone 6 search experience integration (API, UX states, quick actions, details navigation).
+3. Implement Milestone 7 reminder business logic + notifications.
+4. Implement Milestone 8 JSON backup/restore.
+5. Add tests for repository, settings, Home fetch/cache logic, and worker behavior.
 
 ## 10. New Chat Handoff Prompt
 Use this when starting a fresh chat:
 
-“Read `docs/progress-report.md`, `docs/mvp-spec.md`, and `docs/ui-cinematic-direction.md`. Continue Project Lyra from current state, starting with Milestone 4 (local list/status persistence actions) while keeping cinematic UI direction and local-first architecture intact.”
+“Read `docs/progress-report.md`, `docs/mvp-spec.md`, and `docs/ui-cinematic-direction.md`. Continue Project Lyra from current state, starting with Milestone 5 (detail screen status management) while keeping cinematic UI direction and local-first architecture intact.”

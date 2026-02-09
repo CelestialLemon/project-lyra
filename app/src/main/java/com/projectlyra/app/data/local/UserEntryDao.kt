@@ -13,6 +13,9 @@ interface UserEntryDao {
     @Query("SELECT * FROM user_entries WHERE media_item_id = :mediaItemId LIMIT 1")
     suspend fun findByMediaItemId(mediaItemId: Long): UserEntryEntity?
 
+    @Query("DELETE FROM user_entries WHERE media_item_id = :mediaItemId")
+    suspend fun deleteByMediaItemId(mediaItemId: Long): Int
+
     @Query(
         """
         SELECT
@@ -32,4 +35,16 @@ interface UserEntryDao {
         """
     )
     fun observeItemsByStatus(status: String): Flow<List<UserListRow>>
+
+    @Query(
+        """
+        SELECT
+            m.tmdb_id AS tmdb_id,
+            m.media_type AS media_type,
+            u.status
+        FROM user_entries u
+        INNER JOIN media_items m ON m.id = u.media_item_id
+        """
+    )
+    fun observeTrackedStatuses(): Flow<List<UserStatusRow>>
 }

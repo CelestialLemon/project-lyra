@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.data.repository.LibraryRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class MyListViewModel(
     private val libraryRepository: LibraryRepository,
 ) : ViewModel() {
@@ -32,6 +34,25 @@ class MyListViewModel(
 
     fun onStatusSelected(status: WatchStatus) {
         selectedStatus.value = status
+    }
+
+    fun onItemStatusChange(item: TrackedItem, status: WatchStatus) {
+        if (item.status == status) {
+            return
+        }
+
+        viewModelScope.launch {
+            libraryRepository.updateTrackedStatus(
+                mediaItemId = item.localId,
+                status = status,
+            )
+        }
+    }
+
+    fun onItemRemoved(item: TrackedItem) {
+        viewModelScope.launch {
+            libraryRepository.removeTrackedItem(mediaItemId = item.localId)
+        }
     }
 }
 

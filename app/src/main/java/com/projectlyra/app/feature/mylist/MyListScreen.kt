@@ -4,12 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +38,8 @@ fun MyListRoute(
         selectedStatus = selectedStatus,
         items = items,
         onStatusChange = viewModel::onStatusSelected,
+        onItemStatusChange = viewModel::onItemStatusChange,
+        onItemRemove = viewModel::onItemRemoved,
     )
 }
 
@@ -45,6 +49,8 @@ private fun MyListScreen(
     selectedStatus: WatchStatus,
     items: List<TrackedItem>,
     onStatusChange: (WatchStatus) -> Unit,
+    onItemStatusChange: (TrackedItem, WatchStatus) -> Unit,
+    onItemRemove: (TrackedItem) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -97,13 +103,54 @@ private fun MyListScreen(
             }
         } else {
             items(items, key = { it.localId }) { item ->
-                PosterCard(
-                    title = item.title,
-                    subtitle = "${item.mediaType.name.lowercase()} · ${item.releaseOrAirDate}",
-                    posterPath = item.posterPath,
-                    modifier = Modifier.fillMaxWidth(),
+                TrackedItemCard(
+                    item = item,
+                    onStatusChange = { newStatus -> onItemStatusChange(item, newStatus) },
+                    onRemove = { onItemRemove(item) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun TrackedItemCard(
+    item: TrackedItem,
+    onStatusChange: (WatchStatus) -> Unit,
+    onRemove: () -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        PosterCard(
+            title = item.title,
+            subtitle = "${item.mediaType.name.lowercase()} · ${item.releaseOrAirDate}",
+            posterPath = item.posterPath,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            WatchStatus.entries.forEach { status ->
+                StatusChip(
+                    text = status.label,
+                    selected = item.status == status,
+                    onClick = {
+                        if (item.status != status) {
+                            onStatusChange(status)
+                        }
+                    },
+                )
+            }
+        }
+
+        OutlinedButton(onClick = onRemove) {
+            Text(text = "Remove from List")
         }
     }
 }

@@ -17,8 +17,8 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.map
 import retrofit2.HttpException
 
 sealed interface TrendingRefreshResult {
@@ -64,6 +64,36 @@ class LibraryRepository(
                 )
             }
         }
+    }
+
+    fun observeTrackedStatusesByMediaKey(): Flow<Map<String, WatchStatus>> {
+        return userEntryDao.observeTrackedStatuses().map { rows ->
+            rows.mapNotNull { row ->
+                val mappedMediaType = runCatching { MediaType.valueOf(row.mediaType) }.getOrNull()
+                    ?: return@mapNotNull null
+                val mappedStatus = runCatching { WatchStatus.valueOf(row.status) }.getOrNull()
+                    ?: return@mapNotNull null
+                statusKey(tmdbId = row.tmdbId, mediaType = mappedMediaType) to mappedStatus
+            }.toMap()
+        }
+    }
+
+    suspend fun upsertTrackedStatus(item: TrendingItem, status: WatchStatus) {
+        val now = System.currentTimeMillis()
+        val mediaItemId = upsertTrendingMedia(item = item, metadataUpdatedAt = now)
+        upsertUserStatus(mediaItemId = mediaItemId, status = status, updatedAt = now)
+    }
+
+    suspend fun updateTrackedStatus(mediaItemId: Long, status: WatchStatus) {
+        upsertUserStatus(
+            mediaItemId = mediaItemId,
+            status = status,
+            updatedAt = System.currentTimeMillis(),
+        )
+    }
+
+    suspend fun removeTrackedItem(mediaItemId: Long) {
+        userEntryDao.deleteByMediaItemId(mediaItemId)
     }
 
     suspend fun getCachedTrending(): List<TrendingItem> {
@@ -317,5 +347,30 @@ class LibraryRepository(
             is IOException -> "Network path to TMDB is unavailable right now. Please retry."
             else -> "Unable to load trending titles right now."
         }
+    }
+
+    private suspend fun upsertUserStatus(
+        mediaItemId: Long,
+        status: WatchStatus,
+        updatedAt: Long,
+    ) {
+        val existingEntry = userEntryDao.findByMediaItemId(mediaItemId)
+        if (existingEntry?.status == status.name) {
+            return
+        }
+
+        userEntryDao.upsertUserEntry(
+            UserEntryEntity(
+                id = existingEntry?.id ?: 0,
+                mediaItemId = mediaItemId,
+                status = status.name,
+                addedAt = existingEntry?.addedAt ?: updatedAt,
+                updatedAt = updatedAt,
+            )
+        )
+    }
+
+    private fun statusKey(tmdbId: Int, mediaType: MediaType): String {
+        return "${mediaType.name}:$tmdbId"
     }
 }
