@@ -47,4 +47,4 @@
 ## Definition of done
 - All acceptance criteria above are met.
 - Manual product walkthrough completed for cards, details status control, and My List tabs.
-- `docs/v0.3/progress-tracker.md` updated with final status and completion date.
+- `docs/archive/v0.3/progress-tracker.md` updated with final status and completion date.

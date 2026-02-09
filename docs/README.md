@@ -1,13 +1,9 @@
 # Documentation Index
 
-This folder contains active documentation for the current phase.
+This folder contains active planning docs and archived release records.
 
 ## Live docs
-- `v0.3/spec.md` - Product and UX scope for release `v0.3` (active)
-- `v0.3/progress-tracker.md` - Implementation tracker for `v0.3` (active)
-
-## Future docs
-- `v1/README.md` - Placeholder for the eventual V1 planning phase
+- `v1/README.md` - Placeholder for post-v0.3 planning and implementation docs (active)
 
 ## Archived docs
 - `archive/mvp/mvp-spec.md`
@@ -15,5 +11,7 @@ This folder contains active documentation for the current phase.
 - `archive/mvp/ui-cinematic-direction.md`
 - `archive/v0.2/spec.md`
 - `archive/v0.2/progress-tracker.md`
+- `archive/v0.3/spec.md`
+- `archive/v0.3/progress-tracker.md`
 
-The archived MVP docs are kept for reference and historical context.
+Archived docs are kept for release history and reference.
