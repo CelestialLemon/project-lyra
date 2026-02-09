@@ -3,7 +3,11 @@
 This folder contains active documentation for the current phase.
 
 ## Live docs
-- `v1/README.md` - V1 planning and execution docs (active)
+- `v0.2/spec.md` - Product and UX scope for release `v0.2` (active)
+- `v0.2/progress-tracker.md` - Implementation tracker for `v0.2` (active)
+
+## Future docs
+- `v1/README.md` - Placeholder for the eventual V1 planning phase
 
 ## Archived docs
 - `archive/mvp/mvp-spec.md`
