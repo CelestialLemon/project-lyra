@@ -3,7 +3,8 @@
 This folder contains active documentation for the current phase.
 
 ## Live docs
-- No active release docs at the moment.
+- `v0.3/spec.md` - Product and UX scope for release `v0.3` (active)
+- `v0.3/progress-tracker.md` - Implementation tracker for `v0.3` (active)
 
 ## Future docs
 - `v1/README.md` - Placeholder for the eventual V1 planning phase
