@@ -14,6 +14,7 @@ class AppContainer(context: Context) {
         mediaDao = database.mediaDao(),
         userEntryDao = database.userEntryDao(),
         trendingCacheDao = database.trendingCacheDao(),
+        episodeReminderStateDao = database.episodeReminderStateDao(),
         tmdbApiService = tmdbApiService,
     )
 

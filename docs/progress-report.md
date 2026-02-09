@@ -107,15 +107,15 @@ Status: Completed
   - Search-result tap navigation into the Details screen flow.
 
 ## Milestone 7: Episode reminder worker + notification channel
-Status: Scaffold only
+Status: Completed
 - Implemented:
-  - Worker class scaffold.
-  - Daily periodic work scheduling hook.
-- Pending:
-  - Fetch airing info for tracked TV shows.
-  - Detect “new since last check”.
-  - Notification channel + notification UI payload.
-  - Respect app reminder toggles/time.
+  - Daily periodic work scheduling synced from app settings (enable/disable + reminder time).
+  - Worker business logic for tracked TV titles in `Watching`, `On Hold`, and `Completed`.
+  - TMDB TV details checks to fetch latest season/episode counts.
+  - “New since last check” detection using persisted per-show reminder state in Room.
+  - Notification channel creation and episode-update notification payload dispatch.
+  - Android 13+ notification permission request flow when reminders are enabled in Settings.
+  - `Completed` auto-transition to `On Hold` when a new season is detected.
 
 ## Milestone 8: JSON backup/restore
 Status: Not started
@@ -135,9 +135,9 @@ Status: Not started
 - Home and My List cards open a full Details screen with metadata and status controls.
 - Search tab supports live TMDB movie/TV discovery with quick status tracking and details navigation.
 - Settings stores encrypted API key plus reminder/backup toggles.
+- Episode reminder checks run daily at configured time and notify for newly available episodes.
 
 ## 7. Known Gaps and Risks
-- Reminder worker does not yet execute business logic.
 - No backup/restore implementation yet.
 - No automated tests yet.
 
@@ -174,11 +174,12 @@ Status: Not started
 - Reminders:
   - `app/src/main/java/com/projectlyra/app/workers/EpisodeReminderWorker.kt`
   - `app/src/main/java/com/projectlyra/app/workers/ReminderScheduler.kt`
+  - `app/src/main/java/com/projectlyra/app/data/local/EpisodeReminderStateEntity.kt`
+  - `app/src/main/java/com/projectlyra/app/data/local/EpisodeReminderStateDao.kt`
 
 ## 9. Recommended Next Implementation Order
-1. Implement Milestone 7 reminder business logic + notifications.
-2. Implement Milestone 8 JSON backup/restore.
-3. Add tests for repository, settings, Home/details/search fetch logic, and worker behavior.
+1. Implement Milestone 8 JSON backup/restore.
+2. Add tests for repository, settings, Home/details/search fetch logic, and worker behavior.
 
 ## 10. New Chat Handoff Prompt
 Use this when starting a fresh chat:

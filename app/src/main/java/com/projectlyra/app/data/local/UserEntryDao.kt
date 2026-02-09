@@ -47,4 +47,18 @@ interface UserEntryDao {
         """
     )
     fun observeTrackedStatuses(): Flow<List<UserStatusRow>>
+
+    @Query(
+        """
+        SELECT
+            m.id AS local_id,
+            m.tmdb_id AS tmdb_id,
+            m.title,
+            u.status
+        FROM user_entries u
+        INNER JOIN media_items m ON m.id = u.media_item_id
+        WHERE m.media_type = 'TV' AND u.status IN (:statuses)
+        """
+    )
+    suspend fun getTvReminderCandidates(statuses: List<String>): List<TvReminderCandidateRow>
 }

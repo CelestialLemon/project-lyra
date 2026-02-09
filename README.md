@@ -12,7 +12,9 @@ This repository contains the MVP scaffold with:
 - Full Details screen with TMDB metadata, status controls, and TV season/episode info
 - Room database entities/DAOs for tracked items
 - Settings with Keystore-encrypted TMDB API key + DataStore toggles
-- Episode reminder worker scaffold
+- Daily episode reminder worker with notification channel + payloads
+- Reminder-state persistence for "new since last check" detection
+- Auto move from `Completed` to `On Hold` when a new TV season is detected
 
 ## Prerequisites
 - JDK 21 (recommended for Android build stability)
@@ -36,6 +38,5 @@ adb logcat
 ```
 
 ## Next Milestones
-1. Implement daily WorkManager episode checks + notifications.
-2. Implement JSON backup/restore flow.
-3. Add automated tests for repository, settings, and feature flows.
+1. Implement JSON backup/restore flow.
+2. Add automated tests for repository, settings, and feature flows.

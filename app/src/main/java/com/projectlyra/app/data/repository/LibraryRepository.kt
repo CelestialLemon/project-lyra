@@ -7,6 +7,8 @@ import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.data.local.CachedTrendingRow
+import com.projectlyra.app.data.local.EpisodeReminderStateDao
+import com.projectlyra.app.data.local.EpisodeReminderStateEntity
 import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.MediaItemEntity
 import com.projectlyra.app.data.local.TrendingCacheDao
@@ -69,10 +71,25 @@ sealed interface SearchResult {
     ) : SearchResult
 }
 
+data class ReminderTrackedShow(
+    val localId: Long,
+    val tmdbId: Int,
+    val title: String,
+    val status: WatchStatus,
+)
+
+data class EpisodeReminderStateSnapshot(
+    val mediaItemId: Long,
+    val lastCheckedAt: Long,
+    val lastKnownEpisodeCount: Int?,
+    val lastKnownSeasonCount: Int?,
+)
+
 class LibraryRepository(
     private val mediaDao: MediaDao,
     private val userEntryDao: UserEntryDao,
     private val trendingCacheDao: TrendingCacheDao,
+    private val episodeReminderStateDao: EpisodeReminderStateDao,
     private val tmdbApiService: TmdbApiService,
 ) {
     companion object {
@@ -127,6 +144,54 @@ class LibraryRepository(
 
     suspend fun removeTrackedItem(mediaItemId: Long) {
         userEntryDao.deleteByMediaItemId(mediaItemId)
+    }
+
+    suspend fun getTvReminderCandidates(): List<ReminderTrackedShow> {
+        val eligibleStatuses = listOf(
+            WatchStatus.WATCHING.name,
+            WatchStatus.ON_HOLD.name,
+            WatchStatus.COMPLETED.name,
+        )
+        return userEntryDao.getTvReminderCandidates(eligibleStatuses)
+            .mapNotNull { row ->
+                val mappedStatus = runCatching { WatchStatus.valueOf(row.status) }.getOrNull()
+                    ?: return@mapNotNull null
+                ReminderTrackedShow(
+                    localId = row.localId,
+                    tmdbId = row.tmdbId,
+                    title = row.title,
+                    status = mappedStatus,
+                )
+            }
+    }
+
+    suspend fun getEpisodeReminderState(mediaItemId: Long): EpisodeReminderStateSnapshot? {
+        return episodeReminderStateDao.findByMediaItemId(mediaItemId)?.let { state ->
+            EpisodeReminderStateSnapshot(
+                mediaItemId = state.mediaItemId,
+                lastCheckedAt = state.lastCheckedAt,
+                lastKnownEpisodeCount = state.lastKnownEpisodeCount,
+                lastKnownSeasonCount = state.lastKnownSeasonCount,
+            )
+        }
+    }
+
+    suspend fun upsertEpisodeReminderState(
+        mediaItemId: Long,
+        lastCheckedAt: Long,
+        lastKnownEpisodeCount: Int?,
+        lastKnownSeasonCount: Int?,
+    ) {
+        val existing = episodeReminderStateDao.findByMediaItemId(mediaItemId)
+        episodeReminderStateDao.upsert(
+            EpisodeReminderStateEntity(
+                id = existing?.id ?: 0,
+                mediaItemId = mediaItemId,
+                lastCheckedAt = lastCheckedAt,
+                lastKnownEpisodeCount = lastKnownEpisodeCount,
+                lastKnownSeasonCount = lastKnownSeasonCount,
+            )
+        )
     }
 
     suspend fun getCachedTrending(): List<TrendingItem> {

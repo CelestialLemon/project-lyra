@@ -1,5 +1,10 @@
 package com.projectlyra.app.feature.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,12 +28,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.projectlyra.app.data.settings.TmdbApiKeyValidator
 
@@ -41,6 +48,30 @@ fun SettingsRoute(
     val apiKeyError by viewModel.apiKeyError.collectAsState()
     var apiKeyDraft by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
     var apiKeyVisible by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        viewModel.updateReminder(enabled = granted)
+    }
+
+    val onReminderToggleChange: (Boolean) -> Unit = remember(context, viewModel) {
+        { enabled ->
+            val needsPermission = enabled &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) != PackageManager.PERMISSION_GRANTED
+
+            if (needsPermission) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                viewModel.updateReminder(enabled = enabled)
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -112,7 +143,7 @@ fun SettingsRoute(
         SettingToggleRow(
             label = "Notify for Watching + On Hold",
             checked = settings.reminderEnabled,
-            onCheckedChange = viewModel::updateReminder,
+            onCheckedChange = onReminderToggleChange,
         )
 
         SettingToggleRow(
