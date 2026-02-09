@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -19,9 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.projectlyra.app.data.settings.TmdbApiKeyValidator
 
 @Composable
 fun SettingsRoute(
@@ -29,6 +32,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = viewModel(factory = factory),
 ) {
     val settings by viewModel.settings.collectAsState()
+    val apiKeyError by viewModel.apiKeyError.collectAsState()
     var apiKeyDraft by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
 
     Column(
@@ -47,18 +51,29 @@ fun SettingsRoute(
     ) {
         Text(text = "Settings", style = MaterialTheme.typography.displaySmall)
         Text(
-            text = "Store your personal TMDB key locally. A Keystore-backed secure flow will be added in the next milestone.",
+            text = "Your TMDB API key is encrypted with Android Keystore before it is stored on device.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         OutlinedTextField(
             value = apiKeyDraft,
-            onValueChange = { apiKeyDraft = it },
+            onValueChange = {
+                apiKeyDraft = it
+                viewModel.onApiKeyDraftChanged(it)
+            },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("TMDB API Key") },
             visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.None,
+                autoCorrectEnabled = false,
+            ),
             singleLine = true,
+            isError = apiKeyError != null,
+            supportingText = {
+                Text(apiKeyError ?: TmdbApiKeyValidator.HELPER_TEXT)
+            },
         )
 
         Button(

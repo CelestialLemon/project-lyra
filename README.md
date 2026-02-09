@@ -8,7 +8,7 @@ This repository contains the MVP scaffold with:
 - Bottom navigation: Home, Search, My List, Settings
 - Cinematic poster-first UI baseline
 - Room database entities/DAOs for tracked items
-- DataStore-backed settings (API key + reminder + backup toggle)
+- Settings with Keystore-encrypted TMDB API key + DataStore toggles
 - Episode reminder worker scaffold
 
 ## Prerequisites
@@ -34,7 +34,6 @@ adb logcat
 
 ## Next Milestones
 1. Replace seed trending with live TMDB integration.
-2. Add secure API key storage with Android Keystore-backed encryption.
-3. Add list status updates from Home/Details actions.
-4. Implement daily WorkManager episode checks + notifications.
-5. Implement JSON backup/restore flow.
+2. Add list status updates from Home/Details actions.
+3. Implement daily WorkManager episode checks + notifications.
+4. Implement JSON backup/restore flow.

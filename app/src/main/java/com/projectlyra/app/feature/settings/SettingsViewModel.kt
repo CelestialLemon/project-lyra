@@ -5,14 +5,20 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.projectlyra.app.data.settings.AppSettings
 import com.projectlyra.app.data.settings.SettingsStore
+import com.projectlyra.app.data.settings.TmdbApiKeyValidator
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val settingsStore: SettingsStore,
 ) : ViewModel() {
+    private val _apiKeyError = MutableStateFlow<String?>(null)
+    val apiKeyError: StateFlow<String?> = _apiKeyError.asStateFlow()
+
     val settings: StateFlow<AppSettings> = settingsStore.settings
         .stateIn(
             scope = viewModelScope,
@@ -20,9 +26,26 @@ class SettingsViewModel(
             initialValue = AppSettings(),
         )
 
-    fun updateApiKey(value: String) {
+    init {
         viewModelScope.launch {
-            settingsStore.updateApiKey(value)
+            settingsStore.migrateLegacyApiKeyIfNeeded()
+        }
+    }
+
+    fun onApiKeyDraftChanged(value: String) {
+        _apiKeyError.value = TmdbApiKeyValidator.validate(value)
+    }
+
+    fun updateApiKey(value: String) {
+        val validationError = TmdbApiKeyValidator.validate(value)
+        if (validationError != null) {
+            _apiKeyError.value = validationError
+            return
+        }
+
+        viewModelScope.launch {
+            val wasSaved = settingsStore.updateApiKey(value)
+            _apiKeyError.value = if (wasSaved) null else "Unable to encrypt API key on this device."
         }
     }
 

@@ -59,15 +59,14 @@ Status: Completed
 - App launches on phone and displays Home/Search/My List/Settings tabs.
 
 ## Milestone 2: Settings + API key secure storage
-Status: Partially completed
+Status: Completed
 - Implemented:
   - Settings screen UI.
-  - API key field saved to DataStore.
+  - API key encrypted with Android Keystore (`AES/GCM`) before persistence.
+  - Legacy plaintext API key migration to encrypted storage.
+  - API key field validation for TMDB v3 key format (32-char hex) with inline error states.
   - Reminder toggle.
   - Include-API-key-in-backup toggle.
-- Pending:
-  - Android Keystore-backed encryption flow for API key at rest.
-  - Input validation + error states for key format.
 
 ## Milestone 3: Home trending feed integration
 Status: Partially completed
@@ -122,10 +121,9 @@ Status: Not started
 - Home shows cinematic cards and sample “Hot Right Now” titles.
 - Bottom tabs are functional for navigation.
 - My List tab shows status-filtered seeded entries.
-- Settings stores API key and toggles.
+- Settings stores encrypted API key plus reminder/backup toggles.
 
 ## 7. Known Gaps and Risks
-- API key currently stored in plain DataStore; secure storage is pending.
 - TMDB is not yet integrated; app currently uses static seed data.
 - Search tab is placeholder content.
 - Reminder worker does not yet execute business logic.
@@ -161,10 +159,9 @@ Status: Not started
 ## 9. Recommended Next Implementation Order
 1. Integrate TMDB client and replace seeded Home/Search with real network data.
 2. Build Details screen and status update actions.
-3. Move API key storage to Android Keystore-backed encrypted flow.
-4. Implement reminder business logic + notifications.
-5. Implement JSON backup/restore.
-6. Add tests for repository, settings, and worker logic.
+3. Implement reminder business logic + notifications.
+4. Implement JSON backup/restore.
+5. Add tests for repository, settings, and worker logic.
 
 ## 10. New Chat Handoff Prompt
 Use this when starting a fresh chat:
