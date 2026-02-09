@@ -61,6 +61,7 @@ fun LyraApp() {
     val settingsFactory = remember(application) {
         SettingsViewModelFactory(
             settingsStore = application.container.settingsStore,
+            backupService = application.container.backupService,
         )
     }
     val searchFactory = remember(application) {

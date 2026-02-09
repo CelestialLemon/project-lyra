@@ -118,12 +118,14 @@ Status: Completed
   - `Completed` auto-transition to `On Hold` when a new season is detected.
 
 ## Milestone 8: JSON backup/restore
-Status: Not started
-- Pending:
-  - JSON export schema design
-  - import validation
-  - file picker flow
-  - optional inclusion of API key
+Status: Completed
+- Implemented:
+  - Versioned JSON backup schema (`schemaVersion = 1`) for media, user entries, reminder state, and app settings.
+  - Backup export flow from Settings using Android document picker (`CreateDocument`).
+  - Backup import flow from Settings using Android document picker (`OpenDocument`).
+  - Strict import validation for schema version, enums, timestamps, duplicates, and cross-record references.
+  - Transactional restore into Room tables with trending cache reset.
+  - Optional API key inclusion respected on export; API key restore applied only when present in backup.
 
 ## 6. Current User-Visible State
 - App installs and opens successfully.
@@ -136,9 +138,9 @@ Status: Not started
 - Search tab supports live TMDB movie/TV discovery with quick status tracking and details navigation.
 - Settings stores encrypted API key plus reminder/backup toggles.
 - Episode reminder checks run daily at configured time and notify for newly available episodes.
+- Settings supports JSON backup export and import with success/error status messaging.
 
 ## 7. Known Gaps and Risks
-- No backup/restore implementation yet.
 - No automated tests yet.
 
 ## 8. Source Map (Key Files)
@@ -155,6 +157,8 @@ Status: Not started
   - `app/src/main/java/com/projectlyra/app/ui/components/PosterCard.kt`
   - `app/src/main/java/com/projectlyra/app/ui/components/StatusChip.kt`
 - Data and settings:
+  - `app/src/main/java/com/projectlyra/app/data/backup/BackupService.kt`
+  - `app/src/main/java/com/projectlyra/app/data/backup/LyraBackupDocument.kt`
   - `app/src/main/java/com/projectlyra/app/data/local/LyraDatabase.kt`
   - `app/src/main/java/com/projectlyra/app/data/local/TrendingCacheEntity.kt`
   - `app/src/main/java/com/projectlyra/app/data/local/TrendingCacheDao.kt`
@@ -178,10 +182,9 @@ Status: Not started
   - `app/src/main/java/com/projectlyra/app/data/local/EpisodeReminderStateDao.kt`
 
 ## 9. Recommended Next Implementation Order
-1. Implement Milestone 8 JSON backup/restore.
-2. Add tests for repository, settings, Home/details/search fetch logic, and worker behavior.
+1. Add tests for repository, settings, backup/restore, Home/details/search fetch logic, and worker behavior.
 
 ## 10. New Chat Handoff Prompt
 Use this when starting a fresh chat:
 
-“Read `docs/progress-report.md`, `docs/mvp-spec.md`, and `docs/ui-cinematic-direction.md`. Continue Project Lyra from current state, starting with Milestone 7 (episode reminder worker + notifications) while keeping cinematic UI direction and local-first architecture intact.”
+“Read `docs/progress-report.md`, `docs/mvp-spec.md`, and `docs/ui-cinematic-direction.md`. Continue Project Lyra from current state, starting with automated tests for repository/settings/backup/worker flows while keeping cinematic UI direction and local-first architecture intact.”

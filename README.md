@@ -15,6 +15,7 @@ This repository contains the MVP scaffold with:
 - Daily episode reminder worker with notification channel + payloads
 - Reminder-state persistence for "new since last check" detection
 - Auto move from `Completed` to `On Hold` when a new TV season is detected
+- JSON backup export/import in Settings with schema validation and optional API key inclusion
 
 ## Prerequisites
 - JDK 21 (recommended for Android build stability)
@@ -38,5 +39,4 @@ adb logcat
 ```
 
 ## Next Milestones
-1. Implement JSON backup/restore flow.
-2. Add automated tests for repository, settings, and feature flows.
+1. Add automated tests for repository, settings, backup/restore, and feature flows.

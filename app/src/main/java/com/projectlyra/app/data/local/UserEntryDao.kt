@@ -13,6 +13,12 @@ interface UserEntryDao {
     @Query("SELECT * FROM user_entries WHERE media_item_id = :mediaItemId LIMIT 1")
     suspend fun findByMediaItemId(mediaItemId: Long): UserEntryEntity?
 
+    @Query("SELECT * FROM user_entries")
+    suspend fun getAllUserEntries(): List<UserEntryEntity>
+
+    @Query("DELETE FROM user_entries")
+    suspend fun clearAll(): Int
+
     @Query("DELETE FROM user_entries WHERE media_item_id = :mediaItemId")
     suspend fun deleteByMediaItemId(mediaItemId: Long): Int
 

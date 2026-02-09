@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.projectlyra.app.data.settings.TmdbApiKeyValidator
+import java.time.LocalDate
 
 @Composable
 fun SettingsRoute(
@@ -46,6 +48,7 @@ fun SettingsRoute(
 ) {
     val settings by viewModel.settings.collectAsState()
     val apiKeyError by viewModel.apiKeyError.collectAsState()
+    val backupUiState by viewModel.backupUiState.collectAsState()
     var apiKeyDraft by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
     var apiKeyVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -54,6 +57,22 @@ fun SettingsRoute(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
         viewModel.updateReminder(enabled = granted)
+    }
+
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportBackup(uri)
+        }
+    }
+
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importBackup(uri)
+        }
     }
 
     val onReminderToggleChange: (Boolean) -> Unit = remember(context, viewModel) {
@@ -151,6 +170,59 @@ fun SettingsRoute(
             checked = settings.includeApiKeyInBackup,
             onCheckedChange = viewModel::updateIncludeApiKeyInBackup,
         )
+
+        Text(
+            text = "Backup and Restore",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = "Import replaces tracked media, watch statuses, and reminder history on this device.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        OutlinedButton(
+            onClick = {
+                viewModel.clearBackupMessage()
+                val dateStamp = LocalDate.now().toString()
+                exportBackupLauncher.launch("lyra-backup-$dateStamp.json")
+            },
+            enabled = !backupUiState.isProcessing,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Export JSON Backup")
+        }
+
+        Button(
+            onClick = {
+                viewModel.clearBackupMessage()
+                importBackupLauncher.launch(arrayOf("application/json", "text/plain"))
+            },
+            enabled = !backupUiState.isProcessing,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Import JSON Backup")
+        }
+
+        if (backupUiState.isProcessing) {
+            Text(
+                text = "Processing backup...",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        backupUiState.resultMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (backupUiState.isError) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+            )
+        }
     }
 }
 
