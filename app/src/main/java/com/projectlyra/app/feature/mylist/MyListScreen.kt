@@ -3,7 +3,6 @@ package com.projectlyra.app.feature.mylist
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,7 +23,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.ui.components.PosterCard
-import com.projectlyra.app.ui.components.StatusChip
 
 @Composable
 fun MyListRoute(
@@ -42,13 +42,15 @@ fun MyListRoute(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun MyListScreen(
     selectedStatus: WatchStatus,
     items: List<TrackedItem>,
     onStatusChange: (WatchStatus) -> Unit,
     onOpenDetails: (TrackedItem) -> Unit,
 ) {
+    val statuses = WatchStatus.entries
+    val selectedTabIndex = statuses.indexOf(selectedStatus).coerceAtLeast(0)
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -75,15 +77,17 @@ private fun MyListScreen(
         }
 
         item {
-            androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                WatchStatus.entries.forEach { status ->
-                    StatusChip(
-                        text = status.label,
+                statuses.forEach { status ->
+                    Tab(
                         selected = selectedStatus == status,
                         onClick = { onStatusChange(status) },
+                        text = {
+                            Text(text = status.label)
+                        },
                     )
                 }
             }
@@ -92,7 +96,7 @@ private fun MyListScreen(
         if (items.isEmpty()) {
             item {
                 Text(
-                    text = "No titles in ${selectedStatus.label} yet.",
+                    text = emptyStateMessage(selectedStatus),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 16.dp),
@@ -120,4 +124,12 @@ private fun TrackedItemCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onOpenDetails,
     )
+}
+
+private fun emptyStateMessage(status: WatchStatus): String = when (status) {
+    WatchStatus.WANT_TO_WATCH -> "No titles queued yet. Add a title to your watchlist."
+    WatchStatus.WATCHING -> "Nothing currently in progress. Start a title to track it here."
+    WatchStatus.ON_HOLD -> "No paused titles right now."
+    WatchStatus.DROPPED -> "No dropped titles yet."
+    WatchStatus.COMPLETED -> "No completed titles yet. Finished titles will show up here."
 }
