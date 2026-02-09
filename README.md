@@ -7,7 +7,9 @@ This repository contains the MVP scaffold with:
 - Kotlin + Jetpack Compose app shell
 - Bottom navigation: Home, Search, My List, Settings
 - Cinematic poster-first Home with live TMDB trending feed
+- Search tab with live TMDB multi-search, debounced query UX, and quick status actions
 - Home loading/error/retry handling plus Room-backed trending cache fallback
+- Full Details screen with TMDB metadata, status controls, and TV season/episode info
 - Room database entities/DAOs for tracked items
 - Settings with Keystore-encrypted TMDB API key + DataStore toggles
 - Episode reminder worker scaffold
@@ -34,7 +36,6 @@ adb logcat
 ```
 
 ## Next Milestones
-1. Build full Details screen with status controls and season/episode metadata.
-2. Implement Search experience integration (API + UX states + quick actions).
-3. Implement daily WorkManager episode checks + notifications.
-4. Implement JSON backup/restore flow.
+1. Implement daily WorkManager episode checks + notifications.
+2. Implement JSON backup/restore flow.
+3. Add automated tests for repository, settings, and feature flows.

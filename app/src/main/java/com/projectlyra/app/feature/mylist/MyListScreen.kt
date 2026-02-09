@@ -29,6 +29,7 @@ import com.projectlyra.app.ui.components.StatusChip
 @Composable
 fun MyListRoute(
     factory: MyListViewModelFactory,
+    onOpenDetails: (TrackedItem) -> Unit,
     viewModel: MyListViewModel = viewModel(factory = factory),
 ) {
     val selectedStatus by viewModel.status.collectAsState()
@@ -40,6 +41,7 @@ fun MyListRoute(
         onStatusChange = viewModel::onStatusSelected,
         onItemStatusChange = viewModel::onItemStatusChange,
         onItemRemove = viewModel::onItemRemoved,
+        onOpenDetails = onOpenDetails,
     )
 }
 
@@ -51,6 +53,7 @@ private fun MyListScreen(
     onStatusChange: (WatchStatus) -> Unit,
     onItemStatusChange: (TrackedItem, WatchStatus) -> Unit,
     onItemRemove: (TrackedItem) -> Unit,
+    onOpenDetails: (TrackedItem) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -107,6 +110,7 @@ private fun MyListScreen(
                     item = item,
                     onStatusChange = { newStatus -> onItemStatusChange(item, newStatus) },
                     onRemove = { onItemRemove(item) },
+                    onOpenDetails = { onOpenDetails(item) },
                 )
             }
         }
@@ -119,6 +123,7 @@ private fun TrackedItemCard(
     item: TrackedItem,
     onStatusChange: (WatchStatus) -> Unit,
     onRemove: () -> Unit,
+    onOpenDetails: () -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -129,6 +134,7 @@ private fun TrackedItemCard(
             subtitle = "${item.mediaType.name.lowercase()} · ${item.releaseOrAirDate}",
             posterPath = item.posterPath,
             modifier = Modifier.fillMaxWidth(),
+            onClick = onOpenDetails,
         )
 
         FlowRow(

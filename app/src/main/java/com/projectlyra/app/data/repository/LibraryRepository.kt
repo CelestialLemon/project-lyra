@@ -1,6 +1,8 @@
 package com.projectlyra.app.data.repository
 
 import com.projectlyra.app.core.model.MediaType
+import com.projectlyra.app.core.model.MediaDetails
+import com.projectlyra.app.core.model.SeasonSummary
 import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.core.model.WatchStatus
@@ -12,6 +14,9 @@ import com.projectlyra.app.data.local.TrendingCacheEntity
 import com.projectlyra.app.data.local.UserEntryDao
 import com.projectlyra.app.data.local.UserEntryEntity
 import com.projectlyra.app.data.remote.TmdbApiService
+import com.projectlyra.app.data.remote.TmdbMultiSearchItemDto
+import com.projectlyra.app.data.remote.TmdbMovieDetailsDto
+import com.projectlyra.app.data.remote.TmdbTvDetailsDto
 import com.projectlyra.app.data.remote.TmdbTrendingItemDto
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -37,6 +42,33 @@ sealed interface TrendingRefreshResult {
     ) : TrendingRefreshResult
 }
 
+sealed interface MediaDetailsResult {
+    data class Success(
+        val details: MediaDetails,
+    ) : MediaDetailsResult
+
+    data class MissingApiKey(
+        val localFallback: MediaDetails?,
+    ) : MediaDetailsResult
+
+    data class Error(
+        val localFallback: MediaDetails?,
+        val message: String,
+    ) : MediaDetailsResult
+}
+
+sealed interface SearchResult {
+    data class Success(
+        val items: List<TrendingItem>,
+    ) : SearchResult
+
+    data object MissingApiKey : SearchResult
+
+    data class Error(
+        val message: String,
+    ) : SearchResult
+}
+
 class LibraryRepository(
     private val mediaDao: MediaDao,
     private val userEntryDao: UserEntryDao,
@@ -46,6 +78,7 @@ class LibraryRepository(
     companion object {
         private const val TRENDING_CACHE_TTL_MS = 6 * 60 * 60 * 1000L
         private const val TRENDING_LIMIT = 20
+        private const val SEARCH_LIMIT = 30
     }
 
     fun observeByStatus(status: WatchStatus): Flow<List<TrackedItem>> {
@@ -148,6 +181,76 @@ class LibraryRepository(
             }
             TrendingRefreshResult.Error(
                 cachedItems = cachedTrending,
+                message = error.toUserFacingMessage(),
+            )
+        }
+    }
+
+    suspend fun searchTitles(apiKey: String, query: String): SearchResult {
+        val normalizedApiKey = apiKey.trim()
+        val normalizedQuery = query.trim()
+
+        if (normalizedQuery.isEmpty()) {
+            return SearchResult.Success(items = emptyList())
+        }
+
+        if (normalizedApiKey.isEmpty()) {
+            return SearchResult.MissingApiKey
+        }
+
+        return try {
+            val results = tmdbApiService.searchMulti(
+                apiKey = normalizedApiKey,
+                query = normalizedQuery,
+            ).results
+                .mapNotNull { dto -> dto.toDomainOrNull() }
+                .distinctBy { item -> "${item.mediaType.name}:${item.tmdbId}" }
+                .take(SEARCH_LIMIT)
+
+            SearchResult.Success(items = results)
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                throw error
+            }
+            SearchResult.Error(message = error.toUserFacingMessage())
+        }
+    }
+
+    suspend fun getMediaDetails(
+        apiKey: String,
+        tmdbId: Int,
+        mediaType: MediaType,
+    ): MediaDetailsResult {
+        val normalizedApiKey = apiKey.trim()
+        val localFallback = mediaDao.findByTmdbAndType(tmdbId = tmdbId, mediaType = mediaType.name)
+            ?.toDetailsFallback(mediaType = mediaType)
+
+        if (normalizedApiKey.isEmpty()) {
+            return MediaDetailsResult.MissingApiKey(localFallback)
+        }
+
+        return try {
+            val remoteDetails = when (mediaType) {
+                MediaType.MOVIE -> tmdbApiService.getMovieDetails(movieId = tmdbId, apiKey = normalizedApiKey).toDomainOrNull()
+                MediaType.TV -> tmdbApiService.getTvDetails(tvId = tmdbId, apiKey = normalizedApiKey).toDomainOrNull()
+            }
+
+            if (remoteDetails == null) {
+                MediaDetailsResult.Error(
+                    localFallback = localFallback,
+                    message = "Unable to load details for this title right now.",
+                )
+            } else {
+                val now = System.currentTimeMillis()
+                upsertTrendingMedia(item = remoteDetails.asTrendingItem(), metadataUpdatedAt = now)
+                MediaDetailsResult.Success(details = remoteDetails)
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                throw error
+            }
+            MediaDetailsResult.Error(
+                localFallback = localFallback,
                 message = error.toUserFacingMessage(),
             )
         }
@@ -332,6 +435,117 @@ class LibraryRepository(
         )
     }
 
+    private fun TmdbMultiSearchItemDto.toDomainOrNull(): TrendingItem? {
+        val mappedMediaType = when (mediaType?.lowercase()) {
+            "movie" -> MediaType.MOVIE
+            "tv" -> MediaType.TV
+            else -> return null
+        }
+
+        val mappedTitle = when (mappedMediaType) {
+            MediaType.MOVIE -> title
+            MediaType.TV -> name
+        }.orEmpty().trim()
+        val mappedPosterPath = posterPath.orEmpty().trim()
+
+        if (mappedTitle.isEmpty() || mappedPosterPath.isEmpty()) {
+            return null
+        }
+
+        val mappedDate = when (mappedMediaType) {
+            MediaType.MOVIE -> releaseDate
+            MediaType.TV -> firstAirDate
+        }.orEmpty()
+
+        return TrendingItem(
+            tmdbId = id,
+            mediaType = mappedMediaType,
+            title = mappedTitle,
+            overview = overview.orEmpty(),
+            posterPath = mappedPosterPath,
+            releaseOrAirDate = mappedDate,
+        )
+    }
+
+    private fun TmdbMovieDetailsDto.toDomainOrNull(): MediaDetails? {
+        val mappedTitle = title.orEmpty().trim()
+        val mappedPosterPath = posterPath.orEmpty().trim()
+        if (mappedTitle.isEmpty() || mappedPosterPath.isEmpty()) {
+            return null
+        }
+
+        return MediaDetails(
+            tmdbId = id,
+            mediaType = MediaType.MOVIE,
+            title = mappedTitle,
+            overview = overview.orEmpty(),
+            posterPath = mappedPosterPath,
+            backdropPath = backdropPath?.trim()?.takeIf { it.isNotEmpty() },
+            releaseOrAirDate = releaseDate.orEmpty(),
+            genres = genres.orEmpty().mapNotNull { dto -> dto.name?.trim()?.takeIf { it.isNotEmpty() } },
+            runtimeMinutes = runtime?.takeIf { it > 0 },
+        )
+    }
+
+    private fun TmdbTvDetailsDto.toDomainOrNull(): MediaDetails? {
+        val mappedTitle = name.orEmpty().trim()
+        val mappedPosterPath = posterPath.orEmpty().trim()
+        if (mappedTitle.isEmpty() || mappedPosterPath.isEmpty()) {
+            return null
+        }
+
+        val mappedSeasons = seasons.orEmpty()
+            .mapNotNull { season ->
+                val seasonNumber = season.seasonNumber ?: return@mapNotNull null
+                val episodeCount = season.episodeCount ?: 0
+                SeasonSummary(
+                    seasonNumber = seasonNumber,
+                    name = season.name.orEmpty().ifBlank { "Season $seasonNumber" },
+                    episodeCount = episodeCount,
+                    airDate = season.airDate?.trim()?.takeIf { it.isNotEmpty() },
+                    posterPath = season.posterPath?.trim()?.takeIf { it.isNotEmpty() },
+                )
+            }
+            .sortedBy { it.seasonNumber }
+
+        return MediaDetails(
+            tmdbId = id,
+            mediaType = MediaType.TV,
+            title = mappedTitle,
+            overview = overview.orEmpty(),
+            posterPath = mappedPosterPath,
+            backdropPath = backdropPath?.trim()?.takeIf { it.isNotEmpty() },
+            releaseOrAirDate = firstAirDate.orEmpty(),
+            genres = genres.orEmpty().mapNotNull { dto -> dto.name?.trim()?.takeIf { it.isNotEmpty() } },
+            numberOfSeasons = numberOfSeasons?.takeIf { it >= 0 } ?: mappedSeasons.size,
+            numberOfEpisodes = numberOfEpisodes?.takeIf { it >= 0 },
+            seasons = mappedSeasons,
+        )
+    }
+
+    private fun MediaItemEntity.toDetailsFallback(mediaType: MediaType): MediaDetails {
+        return MediaDetails(
+            tmdbId = tmdbId,
+            mediaType = mediaType,
+            title = title,
+            overview = overview,
+            posterPath = posterPath,
+            backdropPath = null,
+            releaseOrAirDate = releaseOrAirDate,
+        )
+    }
+
+    private fun MediaDetails.asTrendingItem(): TrendingItem {
+        return TrendingItem(
+            tmdbId = tmdbId,
+            mediaType = mediaType,
+            title = title,
+            overview = overview,
+            posterPath = posterPath,
+            releaseOrAirDate = releaseOrAirDate,
+        )
+    }
+
     private fun Throwable.toUserFacingMessage(): String {
         return when (this) {
             is HttpException -> {
@@ -345,7 +559,7 @@ class LibraryRepository(
             is SocketTimeoutException -> "TMDB is responding slowly (request timed out). Please retry."
             is UnknownHostException -> "Cannot reach TMDB right now. Check DNS/VPN/network and retry."
             is IOException -> "Network path to TMDB is unavailable right now. Please retry."
-            else -> "Unable to load trending titles right now."
+            else -> "Unable to load TMDB data right now."
         }
     }
 

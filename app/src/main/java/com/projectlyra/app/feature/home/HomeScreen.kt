@@ -36,6 +36,7 @@ import com.projectlyra.app.ui.components.StatusChip
 @Composable
 fun HomeRoute(
     factory: HomeViewModelFactory,
+    onOpenDetails: (TrendingItem) -> Unit,
     viewModel: HomeViewModel = viewModel(factory = factory),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -45,6 +46,7 @@ fun HomeRoute(
         onRetry = viewModel::retry,
         onStatusSelected = viewModel::onStatusSelected,
         trackedStatusFor = viewModel::trackedStatusFor,
+        onOpenDetails = onOpenDetails,
     )
 }
 
@@ -54,6 +56,7 @@ private fun HomeScreen(
     onRetry: () -> Unit,
     onStatusSelected: (TrendingItem, WatchStatus) -> Unit,
     trackedStatusFor: (TrendingItem) -> WatchStatus?,
+    onOpenDetails: (TrendingItem) -> Unit,
 ) {
     if (uiState.isLoading && uiState.trending.isEmpty()) {
         FullscreenLoading()
@@ -152,6 +155,7 @@ private fun HomeScreen(
                         item = hero,
                         trackedStatus = trackedStatusFor(hero),
                         onStatusSelected = { status -> onStatusSelected(hero, status) },
+                        onOpenDetails = { onOpenDetails(hero) },
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .fillMaxWidth(),
@@ -176,6 +180,7 @@ private fun HomeScreen(
                                     item = item,
                                     trackedStatus = trackedStatusFor(item),
                                     onStatusSelected = { status -> onStatusSelected(item, status) },
+                                    onOpenDetails = { onOpenDetails(item) },
                                     modifier = Modifier.fillParentMaxWidth(0.78f),
                                 )
                             }
@@ -197,6 +202,7 @@ private fun TrendingCardWithActions(
     item: TrendingItem,
     trackedStatus: WatchStatus?,
     onStatusSelected: (WatchStatus) -> Unit,
+    onOpenDetails: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -208,6 +214,7 @@ private fun TrendingCardWithActions(
             subtitle = item.releaseOrAirDate,
             posterPath = item.posterPath,
             modifier = Modifier.fillMaxWidth(),
+            onClick = onOpenDetails,
         )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
