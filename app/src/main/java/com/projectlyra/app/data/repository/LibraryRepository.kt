@@ -4,17 +4,50 @@ import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.core.model.WatchStatus
+import com.projectlyra.app.data.local.CachedTrendingRow
 import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.MediaItemEntity
+import com.projectlyra.app.data.local.TrendingCacheDao
+import com.projectlyra.app.data.local.TrendingCacheEntity
 import com.projectlyra.app.data.local.UserEntryDao
 import com.projectlyra.app.data.local.UserEntryEntity
+import com.projectlyra.app.data.remote.TmdbApiService
+import com.projectlyra.app.data.remote.TmdbTrendingItemDto
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CancellationException
+import retrofit2.HttpException
+
+sealed interface TrendingRefreshResult {
+    data class Success(
+        val items: List<TrendingItem>,
+        val fromCache: Boolean,
+    ) : TrendingRefreshResult
+
+    data class Error(
+        val cachedItems: List<TrendingItem>,
+        val message: String,
+    ) : TrendingRefreshResult
+
+    data class MissingApiKey(
+        val cachedItems: List<TrendingItem>,
+    ) : TrendingRefreshResult
+}
 
 class LibraryRepository(
     private val mediaDao: MediaDao,
     private val userEntryDao: UserEntryDao,
+    private val trendingCacheDao: TrendingCacheDao,
+    private val tmdbApiService: TmdbApiService,
 ) {
+    companion object {
+        private const val TRENDING_CACHE_TTL_MS = 6 * 60 * 60 * 1000L
+        private const val TRENDING_LIMIT = 20
+    }
+
     fun observeByStatus(status: WatchStatus): Flow<List<TrackedItem>> {
         return userEntryDao.observeItemsByStatus(status.name).map { rows ->
             rows.map { row ->
@@ -30,6 +63,63 @@ class LibraryRepository(
                     updatedAt = row.updatedAt,
                 )
             }
+        }
+    }
+
+    suspend fun getCachedTrending(): List<TrendingItem> {
+        return trendingCacheDao.getCachedTrending().mapNotNull { row -> row.toDomainOrNull() }
+    }
+
+    suspend fun refreshTrending(apiKey: String, forceRefresh: Boolean = false): TrendingRefreshResult {
+        val cachedTrending = getCachedTrending()
+        val normalizedApiKey = apiKey.trim()
+
+        if (normalizedApiKey.isEmpty()) {
+            return TrendingRefreshResult.MissingApiKey(cachedTrending)
+        }
+
+        if (!forceRefresh && isCacheFresh(cachedTrending)) {
+            return TrendingRefreshResult.Success(
+                items = cachedTrending,
+                fromCache = true,
+            )
+        }
+
+        return try {
+            val remoteTrending = tmdbApiService.getTrendingAllDay(normalizedApiKey)
+                .results
+                .mapNotNull { dto -> dto.toDomainOrNull() }
+                .distinctBy { item -> "${item.mediaType.name}:${item.tmdbId}" }
+                .take(TRENDING_LIMIT)
+
+            if (remoteTrending.isEmpty()) {
+                if (cachedTrending.isNotEmpty()) {
+                    TrendingRefreshResult.Success(
+                        items = cachedTrending,
+                        fromCache = true,
+                    )
+                } else {
+                    TrendingRefreshResult.Error(
+                        cachedItems = emptyList(),
+                        message = "No trending titles are available right now.",
+                    )
+                }
+            } else {
+                val now = System.currentTimeMillis()
+                cacheTrending(items = remoteTrending, cachedAt = now)
+                TrendingRefreshResult.Success(
+                    items = remoteTrending,
+                    fromCache = false,
+                )
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                throw error
+            }
+            TrendingRefreshResult.Error(
+                cachedItems = cachedTrending,
+                message = error.toUserFacingMessage(),
+            )
         }
     }
 
@@ -122,5 +212,110 @@ class LibraryRepository(
                 releaseOrAirDate = "1999-03-31",
             ),
         )
+    }
+
+    private suspend fun isCacheFresh(cachedTrending: List<TrendingItem>): Boolean {
+        if (cachedTrending.isEmpty()) {
+            return false
+        }
+
+        val latestCachedAt = trendingCacheDao.latestCachedAt() ?: return false
+        return System.currentTimeMillis() - latestCachedAt <= TRENDING_CACHE_TTL_MS
+    }
+
+    private suspend fun cacheTrending(items: List<TrendingItem>, cachedAt: Long) {
+        trendingCacheDao.clearAll()
+
+        val cacheEntries = items.mapIndexed { index, item ->
+            TrendingCacheEntity(
+                mediaItemId = upsertTrendingMedia(item = item, metadataUpdatedAt = cachedAt),
+                position = index,
+                cachedAt = cachedAt,
+            )
+        }
+
+        trendingCacheDao.upsertAll(cacheEntries)
+    }
+
+    private suspend fun upsertTrendingMedia(item: TrendingItem, metadataUpdatedAt: Long): Long {
+        val existing = mediaDao.findByTmdbAndType(item.tmdbId, item.mediaType.name)
+        val existingId = existing?.id ?: 0L
+
+        val upsertedId = mediaDao.upsertMediaItem(
+            MediaItemEntity(
+                id = existingId,
+                tmdbId = item.tmdbId,
+                mediaType = item.mediaType.name,
+                title = item.title,
+                overview = item.overview,
+                posterPath = item.posterPath,
+                releaseOrAirDate = item.releaseOrAirDate,
+                metadataUpdatedAt = metadataUpdatedAt,
+            )
+        )
+
+        return if (existingId != 0L) existingId else upsertedId
+    }
+
+    private fun CachedTrendingRow.toDomainOrNull(): TrendingItem? {
+        val mappedType = runCatching { MediaType.valueOf(mediaType) }.getOrNull() ?: return null
+        return TrendingItem(
+            tmdbId = tmdbId,
+            mediaType = mappedType,
+            title = title,
+            overview = overview,
+            posterPath = posterPath,
+            releaseOrAirDate = releaseOrAirDate,
+        )
+    }
+
+    private fun TmdbTrendingItemDto.toDomainOrNull(): TrendingItem? {
+        val mappedMediaType = when (mediaType?.lowercase()) {
+            "movie" -> MediaType.MOVIE
+            "tv" -> MediaType.TV
+            else -> return null
+        }
+
+        val mappedTitle = when (mappedMediaType) {
+            MediaType.MOVIE -> title
+            MediaType.TV -> name
+        }.orEmpty().trim()
+
+        val mappedPosterPath = posterPath.orEmpty().trim()
+
+        if (mappedTitle.isEmpty() || mappedPosterPath.isEmpty()) {
+            return null
+        }
+
+        val mappedDate = when (mappedMediaType) {
+            MediaType.MOVIE -> releaseDate
+            MediaType.TV -> firstAirDate
+        }.orEmpty()
+
+        return TrendingItem(
+            tmdbId = id,
+            mediaType = mappedMediaType,
+            title = mappedTitle,
+            overview = overview.orEmpty(),
+            posterPath = mappedPosterPath,
+            releaseOrAirDate = mappedDate,
+        )
+    }
+
+    private fun Throwable.toUserFacingMessage(): String {
+        return when (this) {
+            is HttpException -> {
+                when (code()) {
+                    401, 403 -> "TMDB API key is invalid. Update it in Settings and retry."
+                    429 -> "TMDB rate limit reached. Please retry in a moment."
+                    else -> "TMDB request failed (${code()}). Please retry."
+                }
+            }
+
+            is SocketTimeoutException -> "TMDB is responding slowly (request timed out). Please retry."
+            is UnknownHostException -> "Cannot reach TMDB right now. Check DNS/VPN/network and retry."
+            is IOException -> "Network path to TMDB is unavailable right now. Please retry."
+            else -> "Unable to load trending titles right now."
+        }
     }
 }

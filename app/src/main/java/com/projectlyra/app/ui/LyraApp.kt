@@ -43,6 +43,7 @@ fun LyraApp() {
     val homeFactory = remember(application) {
         HomeViewModelFactory(
             libraryRepository = application.container.libraryRepository,
+            settingsStore = application.container.settingsStore,
         )
     }
     val myListFactory = remember(application) {

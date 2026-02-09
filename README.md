@@ -6,7 +6,8 @@ Android-first, local-first movie and TV tracking app.
 This repository contains the MVP scaffold with:
 - Kotlin + Jetpack Compose app shell
 - Bottom navigation: Home, Search, My List, Settings
-- Cinematic poster-first UI baseline
+- Cinematic poster-first Home with live TMDB trending feed
+- Home loading/error/retry handling plus Room-backed trending cache fallback
 - Room database entities/DAOs for tracked items
 - Settings with Keystore-encrypted TMDB API key + DataStore toggles
 - Episode reminder worker scaffold
@@ -33,7 +34,7 @@ adb logcat
 ```
 
 ## Next Milestones
-1. Replace seed trending with live TMDB integration.
-2. Add list status updates from Home/Details actions.
+1. Add list status updates from Home/Details actions.
+2. Build full Details screen with status controls and season/episode metadata.
 3. Implement daily WorkManager episode checks + notifications.
 4. Implement JSON backup/restore flow.

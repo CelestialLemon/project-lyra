@@ -12,16 +12,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.ui.components.PosterCard
 
 @Composable
@@ -29,13 +33,32 @@ fun HomeRoute(
     factory: HomeViewModelFactory,
     viewModel: HomeViewModel = viewModel(factory = factory),
 ) {
-    val trending by viewModel.trending.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
-    HomeScreen(trending = trending)
+    HomeScreen(
+        uiState = uiState,
+        onRetry = viewModel::retry,
+    )
 }
 
 @Composable
-private fun HomeScreen(trending: List<TrendingItem>) {
+private fun HomeScreen(
+    uiState: HomeUiState,
+    onRetry: () -> Unit,
+) {
+    if (uiState.isLoading && uiState.trending.isEmpty()) {
+        FullscreenLoading()
+        return
+    }
+
+    if (uiState.errorMessage != null && uiState.trending.isEmpty()) {
+        FullscreenError(
+            message = uiState.errorMessage,
+            onRetry = onRetry,
+        )
+        return
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -60,46 +83,95 @@ private fun HomeScreen(trending: List<TrendingItem>) {
                     style = MaterialTheme.typography.displaySmall,
                 )
                 Text(
-                    text = "Poster-first discovery with quick status updates.",
+                    text = "Live TMDB discovery with cached fallback.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
-        item {
-            val hero = trending.firstOrNull()
-            if (hero != null) {
-                PosterCard(
-                    title = hero.title,
-                    subtitle = hero.releaseOrAirDate,
-                    posterPath = hero.posterPath,
+        if (uiState.isLoading) {
+            item {
+                LinearProgressIndicator(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
                 )
             }
         }
 
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (uiState.errorMessage != null) {
+            item {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) {
+                    Text(
+                        text = uiState.errorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Button(onClick = onRetry) {
+                        Text("Retry")
+                    }
+                }
+            }
+        } else if (uiState.isShowingCachedData) {
+            item {
                 Text(
-                    text = "Hot Right Now",
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = "Showing cached trending results.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                ) {
-                    items(trending.drop(1)) { item ->
-                        Box(modifier = Modifier.fillParentMaxWidth(0.78f)) {
-                            PosterCard(
-                                title = item.title,
-                                subtitle = item.releaseOrAirDate,
-                                posterPath = item.posterPath,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+            }
+        }
+
+        if (uiState.trending.isEmpty()) {
+            item {
+                Text(
+                    text = "No trending titles available.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        } else {
+            item {
+                val hero = uiState.trending.firstOrNull()
+                if (hero != null) {
+                    PosterCard(
+                        title = hero.title,
+                        subtitle = hero.releaseOrAirDate,
+                        posterPath = hero.posterPath,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth(),
+                    )
+                }
+            }
+
+            if (uiState.trending.size > 1) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Hot Right Now",
+                            style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                        ) {
+                            items(uiState.trending.drop(1)) { item ->
+                                Box(modifier = Modifier.fillParentMaxWidth(0.78f)) {
+                                    PosterCard(
+                                        title = item.title,
+                                        subtitle = item.releaseOrAirDate,
+                                        posterPath = item.posterPath,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -108,6 +180,53 @@ private fun HomeScreen(trending: List<TrendingItem>) {
 
         item {
             Box(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun FullscreenLoading() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator()
+            Text(
+                text = "Loading trending titles...",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FullscreenError(
+    message: String,
+    onRetry: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+            Button(onClick = onRetry) {
+                Text("Retry")
+            }
         }
     }
 }

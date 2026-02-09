@@ -34,7 +34,7 @@ Build an Android-first personal app to track movies and TV shows with:
 - Local data: Room
 - Settings: DataStore
 - Background jobs: WorkManager
-- Network: Retrofit + Moshi (wired at dependency level, live API integration pending)
+- Network: Retrofit + Moshi (TMDB Home trending integration live; Search integration pending)
 - Image loading: Coil
 
 ## 4. Development Environment (Confirmed Working)
@@ -69,15 +69,14 @@ Status: Completed
   - Include-API-key-in-backup toggle.
 
 ## Milestone 3: Home trending feed integration
-Status: Partially completed
+Status: Completed
 - Implemented:
   - Cinematic home layout.
   - Hero card + “Hot Right Now” rail.
-  - Seeded placeholder dataset.
-- Pending:
-  - Replace seed data with live TMDB trending endpoint.
-  - Error/loading/retry states.
-  - Response mapping and local caching policy.
+  - Live TMDB `trending/all/day` integration.
+  - Response mapping from TMDB movie/TV payloads to app domain model.
+  - Home loading/error/retry states with user-facing network/auth error messages.
+  - Room-backed trending cache table and fallback policy (6-hour cache TTL + stale fallback on fetch failure).
 
 ## Milestone 4: Local list/status persistence
 Status: Partially completed
@@ -97,7 +96,16 @@ Status: Not started
   - status controls
   - season/episode display
 
-## Milestone 6: Episode reminder worker + notification channel
+## Milestone 6: Search experience integration
+Status: Not started
+- Pending:
+  - Implement TMDB multi-search endpoint integration for movies/TV.
+  - Build query input UX with debounce and loading/empty/error states.
+  - Map search results to shared media domain model.
+  - Add quick status actions from search results.
+  - Wire result tap into details flow.
+
+## Milestone 7: Episode reminder worker + notification channel
 Status: Scaffold only
 - Implemented:
   - Worker class scaffold.
@@ -108,7 +116,7 @@ Status: Scaffold only
   - Notification channel + notification UI payload.
   - Respect app reminder toggles/time.
 
-## Milestone 7: JSON backup/restore
+## Milestone 8: JSON backup/restore
 Status: Not started
 - Pending:
   - JSON export schema design
@@ -118,13 +126,13 @@ Status: Not started
 
 ## 6. Current User-Visible State
 - App installs and opens successfully.
-- Home shows cinematic cards and sample “Hot Right Now” titles.
+- Home shows cinematic cards powered by live TMDB trending data when API key is configured.
+- Home gracefully handles loading/errors and can retry fetches.
 - Bottom tabs are functional for navigation.
 - My List tab shows status-filtered seeded entries.
 - Settings stores encrypted API key plus reminder/backup toggles.
 
 ## 7. Known Gaps and Risks
-- TMDB is not yet integrated; app currently uses static seed data.
 - Search tab is placeholder content.
 - Reminder worker does not yet execute business logic.
 - No backup/restore implementation yet.
@@ -145,7 +153,11 @@ Status: Not started
   - `app/src/main/java/com/projectlyra/app/ui/components/StatusChip.kt`
 - Data and settings:
   - `app/src/main/java/com/projectlyra/app/data/local/LyraDatabase.kt`
+  - `app/src/main/java/com/projectlyra/app/data/local/TrendingCacheEntity.kt`
+  - `app/src/main/java/com/projectlyra/app/data/local/TrendingCacheDao.kt`
   - `app/src/main/java/com/projectlyra/app/data/repository/LibraryRepository.kt`
+  - `app/src/main/java/com/projectlyra/app/data/remote/TmdbApiService.kt`
+  - `app/src/main/java/com/projectlyra/app/data/remote/TmdbClientFactory.kt`
   - `app/src/main/java/com/projectlyra/app/data/settings/SettingsStore.kt`
 - Features:
   - `app/src/main/java/com/projectlyra/app/feature/home/HomeScreen.kt`
@@ -157,13 +169,14 @@ Status: Not started
   - `app/src/main/java/com/projectlyra/app/workers/ReminderScheduler.kt`
 
 ## 9. Recommended Next Implementation Order
-1. Integrate TMDB client and replace seeded Home/Search with real network data.
-2. Build Details screen and status update actions.
-3. Implement reminder business logic + notifications.
-4. Implement JSON backup/restore.
-5. Add tests for repository, settings, and worker logic.
+1. Complete Milestone 4 status actions from Home/Details (upsert semantics, duplicate prevention, edit/remove flows).
+2. Build Milestone 5 full Details screen with metadata + status controls + season/episode info.
+3. Implement Milestone 6 search experience integration (API, UX states, quick actions, details navigation).
+4. Implement Milestone 7 reminder business logic + notifications.
+5. Implement Milestone 8 JSON backup/restore.
+6. Add tests for repository, settings, Home fetch/cache logic, and worker behavior.
 
 ## 10. New Chat Handoff Prompt
 Use this when starting a fresh chat:
 
-“Read `docs/progress-report.md`, `docs/mvp-spec.md`, and `docs/ui-cinematic-direction.md`. Continue Project Lyra from current state, starting with TMDB integration and keeping cinematic UI direction and local-first architecture intact.”
+“Read `docs/progress-report.md`, `docs/mvp-spec.md`, and `docs/ui-cinematic-direction.md`. Continue Project Lyra from current state, starting with Milestone 4 (local list/status persistence actions) while keeping cinematic UI direction and local-first architecture intact.”

@@ -7,7 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -22,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.projectlyra.app.data.settings.TmdbApiKeyValidator
@@ -34,6 +40,7 @@ fun SettingsRoute(
     val settings by viewModel.settings.collectAsState()
     val apiKeyError by viewModel.apiKeyError.collectAsState()
     var apiKeyDraft by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
+    var apiKeyVisible by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -64,7 +71,11 @@ fun SettingsRoute(
             },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("TMDB API Key") },
-            visualTransformation = PasswordVisualTransformation(),
+            visualTransformation = if (apiKeyVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
             keyboardOptions = KeyboardOptions(
                 capitalization = KeyboardCapitalization.None,
                 autoCorrectEnabled = false,
@@ -73,6 +84,21 @@ fun SettingsRoute(
             isError = apiKeyError != null,
             supportingText = {
                 Text(apiKeyError ?: TmdbApiKeyValidator.HELPER_TEXT)
+            },
+            trailingIcon = {
+                IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
+                    if (apiKeyVisible) {
+                        Icon(
+                            imageVector = Icons.Rounded.VisibilityOff,
+                            contentDescription = "Hide API key",
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Visibility,
+                            contentDescription = "Show API key",
+                        )
+                    }
+                }
             },
         )
 

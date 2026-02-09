@@ -88,5 +88,6 @@ Android-only personal app for tracking movies and TV shows, with local-first dat
 3. Home trending feed integration.
 4. Local list/status persistence.
 5. Detail screen status management.
-6. Episode reminder worker + notification channel.
-7. JSON backup/restore.
+6. Search experience integration.
+7. Episode reminder worker + notification channel.
+8. JSON backup/restore.
