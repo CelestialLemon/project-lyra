@@ -16,7 +16,7 @@
 ## Milestone tracker
 | Milestone | Status | Notes |
 | --- | --- | --- |
-| App icon refresh | Not Started | Replace launcher assets and verify adaptive + themed icon behavior |
+| App icon refresh | In Progress | New adaptive icon foreground + Android 13+ monochrome assets integrated from `app-icon-2048.png`; launcher-profile validation pending |
 | Dynamic system accent support | Not Started | Implement Material You dynamic theme on Android 12+ with fallback palette |
 | Settings theme preference | Not Started | Add persistent toggle for dynamic accent usage |
 | Visual QA + contrast validation | Not Started | Validate readability and state clarity across key screens |
@@ -25,7 +25,7 @@
 ## Phased implementation plan
 | Phase | Status | Scope | Deliverables | Exit criteria |
 | --- | --- | --- | --- | --- |
-| Phase 1: Icon pipeline | Not Started | Integrate new icon into launcher assets | Updated adaptive icon resources, round icon compatibility, themed icon support | Icon renders correctly in launcher surfaces without clipping/misalignment |
+| Phase 1: Icon pipeline | In Progress | Integrate new icon into launcher assets | Updated adaptive icon resources, round icon compatibility, themed icon support | Icon renders correctly in launcher surfaces without clipping/misalignment |
 | Phase 2: Theme engine update | Not Started | Add dynamic color support and fallback behavior | Theme wiring for Android 12+ dynamic colors with existing palette fallback | UI reflects system accent on supported devices and remains stable on older APIs |
 | Phase 3: Settings control | Not Started | Expose dynamic accent toggle and persist preference | New settings control, DataStore persistence, app restart consistency | User can enable/disable dynamic accent behavior predictably |
 | Phase 4: Validation and sign-off | Not Started | Manual visual QA and release checks | QA notes for Home/Search/My List/Details/Settings, contrast checks, tracker completion | All milestones marked `Done` and release checklist complete |
@@ -37,9 +37,9 @@
 - [ ] Phase 4 complete
 
 ## Task checklist
-- [ ] Import and prepare new icon source (`2048x2048`) for Android launcher assets
-- [ ] Update `ic_launcher`/`ic_launcher_round` outputs as needed
-- [ ] Add/update monochrome icon resource for themed icon support (Android 13+)
+- [x] Import and prepare new icon source (`2048x2048`) for Android launcher assets
+- [x] Update `ic_launcher`/`ic_launcher_round` outputs as needed
+- [x] Add/update monochrome icon resource for themed icon support (Android 13+)
 - [ ] Manual test icon rendering on at least two launcher profiles/device configs
 - [ ] Implement dynamic color theme path for Android 12+ devices
 - [ ] Preserve existing static palette fallback on Android 8-11
@@ -60,3 +60,4 @@
 
 ## Change log
 - `2026-02-10`: Tracker created for v0.4 planning kickoff.
+- `2026-02-10`: Phase 1 implementation started; launcher icon resources updated and Android 13+ monochrome icon support added (manual launcher QA pending).
