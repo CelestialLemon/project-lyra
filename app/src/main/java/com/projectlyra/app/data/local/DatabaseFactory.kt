@@ -9,6 +9,8 @@ object DatabaseFactory {
             context,
             LyraDatabase::class.java,
             "lyra.db",
-        ).fallbackToDestructiveMigration().build()
+        )
+            .addMigrations(*LyraDatabaseMigrations.ALL)
+            .build()
     }
 }

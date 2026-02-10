@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -18,6 +19,9 @@ import com.projectlyra.app.MainActivity
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.data.repository.MediaDetailsResult
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
@@ -26,6 +30,7 @@ class EpisodeReminderWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
     companion object {
+        private const val TAG = "EpisodeReminderWorker"
         private const val CHANNEL_ID = "episode_reminders"
         private const val CHANNEL_NAME = "Episode reminders"
         private const val NOTIFICATION_ID = 7001
@@ -118,7 +123,16 @@ class EpisodeReminderWorker(
             if (error is CancellationException) {
                 throw error
             }
-            Result.success()
+            when (classifyWorkerFailure(error)) {
+                WorkerFailureAction.RETRY -> {
+                    Log.w(TAG, "Reminder sync failed with retryable error", error)
+                    Result.retry()
+                }
+                WorkerFailureAction.FAIL -> {
+                    Log.e(TAG, "Reminder sync failed with non-retryable error", error)
+                    Result.failure()
+                }
+            }
         }
     }
 
@@ -191,4 +205,19 @@ class EpisodeReminderWorker(
         val title: String,
         val newEpisodes: Int,
     )
+}
+
+internal enum class WorkerFailureAction {
+    RETRY,
+    FAIL,
+}
+
+internal fun classifyWorkerFailure(error: Throwable): WorkerFailureAction {
+    return when (error) {
+        is UnknownHostException,
+        is SocketTimeoutException,
+        is IOException,
+        -> WorkerFailureAction.RETRY
+        else -> WorkerFailureAction.FAIL
+    }
 }
