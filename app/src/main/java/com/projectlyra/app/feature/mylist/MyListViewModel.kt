@@ -26,12 +26,6 @@ class MyListViewModel(
 
     val status: StateFlow<WatchStatus> = selectedStatus
 
-    init {
-        viewModelScope.launch {
-            libraryRepository.ensureSeedData()
-        }
-    }
-
     fun onStatusSelected(status: WatchStatus) {
         selectedStatus.value = status
     }

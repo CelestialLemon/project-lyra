@@ -1,6 +1,7 @@
 package com.projectlyra.app
 
 import android.app.Application
+import android.content.pm.ApplicationInfo
 import com.projectlyra.app.di.AppContainer
 import com.projectlyra.app.workers.ReminderScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,22 @@ class LyraApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        bootstrapDebugSeedData()
+        observeReminderSchedule()
+    }
+
+    private fun bootstrapDebugSeedData() {
+        val isDebuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (!isDebuggable) {
+            return
+        }
+
+        appScope.launch {
+            container.libraryRepository.ensureSeedData()
+        }
+    }
+
+    private fun observeReminderSchedule() {
         appScope.launch {
             container.settingsStore.settings
                 .map { settings ->
