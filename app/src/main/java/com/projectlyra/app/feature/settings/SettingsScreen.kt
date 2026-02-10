@@ -52,6 +52,7 @@ fun SettingsRoute(
     var apiKeyDraft by remember(settings.apiKey) { mutableStateOf(settings.apiKey) }
     var apiKeyVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val supportsDynamicAccent = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -164,6 +165,19 @@ fun SettingsRoute(
             checked = settings.reminderEnabled,
             onCheckedChange = onReminderToggleChange,
         )
+
+        if (supportsDynamicAccent) {
+            SettingToggleRow(
+                label = "Use system accent colors",
+                checked = settings.dynamicAccentEnabled,
+                onCheckedChange = viewModel::updateDynamicAccent,
+            )
+            Text(
+                text = "Follows wallpaper-based Material You colors on Android 12+.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         SettingToggleRow(
             label = "Include API key in JSON backup",

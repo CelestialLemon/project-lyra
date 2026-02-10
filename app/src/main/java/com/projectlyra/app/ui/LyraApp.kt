@@ -14,6 +14,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.projectlyra.app.LyraApplication
+import com.projectlyra.app.data.settings.AppSettings
 import com.projectlyra.app.feature.details.DetailsRoute
 import com.projectlyra.app.feature.details.DetailsViewModelFactory
 import com.projectlyra.app.feature.home.HomeRoute
@@ -41,6 +43,7 @@ import com.projectlyra.app.feature.settings.SettingsViewModelFactory
 import com.projectlyra.app.ui.navigation.DetailsDestination
 import com.projectlyra.app.ui.navigation.LyraDestination
 import com.projectlyra.app.ui.theme.ProjectLyraTheme
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun LyraApp() {
@@ -70,6 +73,12 @@ fun LyraApp() {
             settingsStore = application.container.settingsStore,
         )
     }
+    val dynamicAccentEnabledFlow = remember(application) {
+        application.container.settingsStore.settings.map { it.dynamicAccentEnabled }
+    }
+    val dynamicAccentEnabled by dynamicAccentEnabledFlow.collectAsState(
+        initial = AppSettings.dynamicAccentSupported,
+    )
 
     val destinations = listOf(
         LyraDestination.HOME,
@@ -83,7 +92,7 @@ fun LyraApp() {
         currentDestination?.hierarchy?.any { it.route == destination.route } == true
     }
 
-    ProjectLyraTheme {
+    ProjectLyraTheme(dynamicAccentEnabled = dynamicAccentEnabled) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             bottomBar = {

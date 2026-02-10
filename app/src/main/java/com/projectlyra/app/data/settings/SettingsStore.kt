@@ -28,6 +28,7 @@ class SettingsStore(
         val reminderHour = intPreferencesKey("reminder_hour")
         val reminderMinute = intPreferencesKey("reminder_minute")
         val includeApiKeyInBackup = booleanPreferencesKey("include_api_key_in_backup")
+        val dynamicAccentEnabled = booleanPreferencesKey("dynamic_accent_enabled")
     }
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs: Preferences ->
@@ -41,6 +42,11 @@ class SettingsStore(
             reminderHour = prefs[Keys.reminderHour] ?: 20,
             reminderMinute = prefs[Keys.reminderMinute] ?: 0,
             includeApiKeyInBackup = prefs[Keys.includeApiKeyInBackup] ?: false,
+            dynamicAccentEnabled = if (AppSettings.dynamicAccentSupported) {
+                prefs[Keys.dynamicAccentEnabled] ?: true
+            } else {
+                false
+            },
         )
     }.flowOn(Dispatchers.IO)
 
@@ -91,6 +97,13 @@ class SettingsStore(
     suspend fun updateIncludeApiKeyInBackup(enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[Keys.includeApiKeyInBackup] = enabled
+        }
+    }
+
+    suspend fun updateDynamicAccent(enabled: Boolean) {
+        val persistedValue = if (AppSettings.dynamicAccentSupported) enabled else false
+        context.settingsDataStore.edit { prefs ->
+            prefs[Keys.dynamicAccentEnabled] = persistedValue
         }
     }
 

@@ -68,6 +68,12 @@ class SettingsViewModel(
         }
     }
 
+    fun updateDynamicAccent(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsStore.updateDynamicAccent(enabled)
+        }
+    }
+
     fun updateReminder(enabled: Boolean) {
         val current = settings.value
         viewModelScope.launch {

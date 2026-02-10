@@ -1,8 +1,11 @@
 package com.projectlyra.app.ui.theme
 
+import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 
 private val LyraDarkColorScheme = darkColorScheme(
     primary = Ember,
@@ -18,9 +21,22 @@ private val LyraDarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun ProjectLyraTheme(content: @Composable () -> Unit) {
+fun ProjectLyraTheme(
+    dynamicAccentEnabled: Boolean,
+    content: @Composable () -> Unit,
+) {
+    val context = LocalContext.current
+    val colorScheme = if (
+        dynamicAccentEnabled &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    ) {
+        dynamicDarkColorScheme(context)
+    } else {
+        LyraDarkColorScheme
+    }
+
     MaterialTheme(
-        colorScheme = LyraDarkColorScheme,
+        colorScheme = colorScheme,
         typography = Typography,
         content = content,
     )
