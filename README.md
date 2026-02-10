@@ -16,6 +16,8 @@ This repository contains the MVP scaffold with:
 - Reminder-state persistence for "new since last check" detection
 - Auto move from `Completed` to `On Hold` when a new TV season is detected
 - JSON backup export/import in Settings with schema validation and optional API key inclusion
+- New adaptive launcher icon foreground + Android 13+ monochrome assets
+- Dynamic system accent support (Android 12+) with DataStore-persisted toggle in Settings
 
 ## Prerequisites
 - JDK 21 (recommended for Android build stability)
