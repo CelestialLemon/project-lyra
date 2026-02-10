@@ -3,7 +3,8 @@
 This folder contains active planning docs and archived release records.
 
 ## Live docs
-- `v1/README.md` - Placeholder for post-v0.3 planning and implementation docs (active)
+- `v0.5/spec.md` - Planned Home + Discover personalization release scope (active)
+- `v0.5/progress-tracker.md` - v0.5 implementation tracker (active)
 
 ## Archived docs
 - `archive/mvp/mvp-spec.md`
