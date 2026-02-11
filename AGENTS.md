@@ -7,6 +7,7 @@
 # Development
 - Do not make any assumptions. If there is ambiguity in any part, use the questions tool to ask the user for clarification.
 - After doing any major changes run the build and tests to verify them.
+- After you are done making any changes, commit them unless specified otherwise.
 
 
 ## Git
