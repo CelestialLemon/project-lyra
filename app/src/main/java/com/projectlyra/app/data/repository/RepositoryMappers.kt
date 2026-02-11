@@ -3,6 +3,8 @@ package com.projectlyra.app.data.repository
 import com.projectlyra.app.core.model.MediaDetails
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.SeasonSummary
+import com.projectlyra.app.core.model.TvEpisodeDetails
+import com.projectlyra.app.core.model.TvSeasonDetails
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.data.local.CachedTrendingRow
 import com.projectlyra.app.data.local.MediaItemEntity
@@ -12,6 +14,7 @@ import com.projectlyra.app.data.remote.TmdbMovieDetailsDto
 import com.projectlyra.app.data.remote.TmdbMultiSearchItemDto
 import com.projectlyra.app.data.remote.TmdbTrendingItemDto
 import com.projectlyra.app.data.remote.TmdbTvDetailsDto
+import com.projectlyra.app.data.remote.TmdbTvSeasonDetailsDto
 
 internal fun CachedTrendingRow.toDomainOrNull(): TrendingItem? {
     val mappedType = runCatching { MediaType.valueOf(mediaType) }.getOrNull() ?: return null
@@ -184,6 +187,39 @@ internal fun TmdbTvDetailsDto.toDomainOrNull(): MediaDetails? {
         numberOfSeasons = numberOfSeasons?.takeIf { it >= 0 } ?: mappedSeasons.size,
         numberOfEpisodes = numberOfEpisodes?.takeIf { it >= 0 },
         seasons = mappedSeasons,
+    )
+}
+
+internal fun TmdbTvSeasonDetailsDto.toDomainOrNull(tvId: Int, fallbackSeasonNumber: Int): TvSeasonDetails? {
+    val mappedSeasonNumber = seasonNumber ?: fallbackSeasonNumber
+    if (mappedSeasonNumber < 0) {
+        return null
+    }
+
+    val mappedEpisodes = episodes.orEmpty()
+        .mapNotNull { episode ->
+            val episodeId = episode.id ?: return@mapNotNull null
+            val episodeNumber = episode.episodeNumber ?: return@mapNotNull null
+            if (episodeNumber <= 0) {
+                return@mapNotNull null
+            }
+            TvEpisodeDetails(
+                episodeId = episodeId,
+                episodeNumber = episodeNumber,
+                title = episode.name.orEmpty().ifBlank { "Episode $episodeNumber" },
+                stillPath = episode.stillPath?.trim()?.takeIf { it.isNotEmpty() },
+                airDate = episode.airDate?.trim()?.takeIf { it.isNotEmpty() },
+                runtimeMinutes = episode.runtime?.takeIf { it > 0 },
+                overview = episode.overview?.trim()?.takeIf { it.isNotEmpty() },
+            )
+        }
+        .sortedBy { it.episodeNumber }
+
+    return TvSeasonDetails(
+        tvId = tvId,
+        seasonNumber = mappedSeasonNumber,
+        seasonName = name.orEmpty().ifBlank { "Season $mappedSeasonNumber" },
+        episodes = mappedEpisodes,
     )
 }
 

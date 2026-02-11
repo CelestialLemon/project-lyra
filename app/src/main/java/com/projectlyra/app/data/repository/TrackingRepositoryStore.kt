@@ -10,13 +10,17 @@ import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.MediaItemEntity
 import com.projectlyra.app.data.local.UserEntryDao
 import com.projectlyra.app.data.local.UserEntryEntity
+import com.projectlyra.app.data.local.WatchedEpisodeDao
+import com.projectlyra.app.data.local.WatchedEpisodeEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 internal class TrackingRepositoryStore(
     private val mediaDao: MediaDao,
     private val userEntryDao: UserEntryDao,
     private val episodeReminderStateDao: EpisodeReminderStateDao,
+    private val watchedEpisodeDao: WatchedEpisodeDao,
     private val nowProvider: () -> Long,
 ) {
     fun observeByStatus(status: WatchStatus): Flow<List<TrackedItem>> {
@@ -58,6 +62,72 @@ internal class TrackingRepositoryStore(
     suspend fun clearTrackedStatus(tmdbId: Int, mediaType: MediaType) {
         val mediaItem = mediaDao.findByTmdbAndType(tmdbId = tmdbId, mediaType = mediaType.name) ?: return
         userEntryDao.deleteByMediaItemId(mediaItem.id)
+    }
+
+    suspend fun observeWatchedEpisodeNumbersBySeason(tmdbId: Int, seasonNumber: Int): Flow<Set<Int>> {
+        if (seasonNumber < 0) {
+            return flowOf(emptySet())
+        }
+        val mediaItemId = mediaDao.findByTmdbAndType(tmdbId = tmdbId, mediaType = MediaType.TV.name)?.id
+            ?: return flowOf(emptySet())
+        return watchedEpisodeDao.observeEpisodeNumbersBySeason(
+            mediaItemId = mediaItemId,
+            seasonNumber = seasonNumber,
+        ).map { numbers ->
+            numbers.filter { it > 0 }.toSet()
+        }
+    }
+
+    suspend fun markWatchedUpToEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+        if (seasonNumber < 0 || episodeNumber <= 0) {
+            return
+        }
+        val mediaItemId = mediaDao.findByTmdbAndType(tmdbId = tmdbId, mediaType = MediaType.TV.name)?.id ?: return
+        watchedEpisodeDao.upsertAll(
+            (1..episodeNumber).map { number ->
+                WatchedEpisodeEntity(
+                    mediaItemId = mediaItemId,
+                    seasonNumber = seasonNumber,
+                    episodeNumber = number,
+                )
+            }
+        )
+    }
+
+    suspend fun markUnwatchedFromEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+        if (seasonNumber < 0 || episodeNumber <= 0) {
+            return
+        }
+        val mediaItemId = mediaDao.findByTmdbAndType(tmdbId = tmdbId, mediaType = MediaType.TV.name)?.id ?: return
+        watchedEpisodeDao.deleteFromEpisode(
+            mediaItemId = mediaItemId,
+            seasonNumber = seasonNumber,
+            episodeNumber = episodeNumber,
+        )
+    }
+
+    suspend fun markEpisodesWatched(
+        tmdbId: Int,
+        seasonNumber: Int,
+        episodeNumbers: Collection<Int>,
+    ) {
+        if (seasonNumber < 0) {
+            return
+        }
+        val normalizedEpisodeNumbers = episodeNumbers.filter { it > 0 }.distinct().sorted()
+        if (normalizedEpisodeNumbers.isEmpty()) {
+            return
+        }
+        val mediaItemId = mediaDao.findByTmdbAndType(tmdbId = tmdbId, mediaType = MediaType.TV.name)?.id ?: return
+        watchedEpisodeDao.upsertAll(
+            normalizedEpisodeNumbers.map { number ->
+                WatchedEpisodeEntity(
+                    mediaItemId = mediaItemId,
+                    seasonNumber = seasonNumber,
+                    episodeNumber = number,
+                )
+            }
+        )
     }
 
     suspend fun getTvReminderCandidates(): List<ReminderTrackedShow> {

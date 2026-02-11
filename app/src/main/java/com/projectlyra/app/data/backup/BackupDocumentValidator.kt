@@ -83,6 +83,36 @@ internal object BackupDocumentValidator {
             }
         }
 
+        val watchedEpisodeKeys = mutableSetOf<String>()
+        document.watchedEpisodes.forEachIndexed { index, watchedEpisode ->
+            if (watchedEpisode.tmdbId <= 0) {
+                return "Watched episode #${index + 1} has an invalid TMDB id."
+            }
+            val normalizedMediaType = normalizeMediaType(watchedEpisode.mediaType)
+                ?: return "Watched episode #${index + 1} has an unsupported media type."
+            if (watchedEpisode.seasonNumber < 0) {
+                return "Watched episode #${index + 1} has an invalid season number."
+            }
+            if (watchedEpisode.episodeNumber <= 0) {
+                return "Watched episode #${index + 1} has an invalid episode number."
+            }
+
+            val mediaReference = mediaKey(watchedEpisode.tmdbId, normalizedMediaType)
+            if (mediaReference !in mediaKeys) {
+                return "Watched episode #${index + 1} references media not present in backup."
+            }
+
+            val episodeKey = watchedEpisodeKey(
+                tmdbId = watchedEpisode.tmdbId,
+                mediaType = normalizedMediaType,
+                seasonNumber = watchedEpisode.seasonNumber,
+                episodeNumber = watchedEpisode.episodeNumber,
+            )
+            if (!watchedEpisodeKeys.add(episodeKey)) {
+                return "Backup contains duplicate watched episodes for TMDB ${watchedEpisode.tmdbId} (${normalizedMediaType.lowercase()}) season ${watchedEpisode.seasonNumber} episode ${watchedEpisode.episodeNumber}."
+            }
+        }
+
         return null
     }
 }
@@ -103,4 +133,13 @@ internal fun normalizeStatus(value: String): String? {
 
 internal fun mediaKey(tmdbId: Int, mediaType: String): String {
     return "$mediaType:$tmdbId"
+}
+
+internal fun watchedEpisodeKey(
+    tmdbId: Int,
+    mediaType: String,
+    seasonNumber: Int,
+    episodeNumber: Int,
+): String {
+    return "$mediaType:$tmdbId:$seasonNumber:$episodeNumber"
 }

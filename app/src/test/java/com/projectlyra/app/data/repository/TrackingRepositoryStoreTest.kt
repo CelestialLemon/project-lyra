@@ -15,6 +15,8 @@ import com.projectlyra.app.data.local.UserEntryDao
 import com.projectlyra.app.data.local.UserEntryEntity
 import com.projectlyra.app.data.local.UserListRow
 import com.projectlyra.app.data.local.UserStatusRow
+import com.projectlyra.app.data.local.WatchedEpisodeDao
+import com.projectlyra.app.data.local.WatchedEpisodeEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -31,10 +33,12 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { 100L },
         )
 
@@ -51,11 +55,13 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         var now = 100L
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { now },
         )
 
@@ -74,10 +80,12 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { 100L },
         )
 
@@ -94,10 +102,12 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { 100L },
         )
 
@@ -126,11 +136,13 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         var now = 100L
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { now },
         )
 
@@ -150,10 +162,12 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { 1L },
         )
 
@@ -190,10 +204,12 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { 1L },
         )
 
@@ -222,10 +238,12 @@ class TrackingRepositoryStoreTest {
         val mediaDao = FakeMediaDao()
         val userEntryDao = FakeUserEntryDao(mediaDao)
         val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
         val store = TrackingRepositoryStore(
             mediaDao = mediaDao,
             userEntryDao = userEntryDao,
             episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
             nowProvider = { 1L },
         )
         val mediaId = mediaDao.upsertMediaItem(
@@ -258,6 +276,73 @@ class TrackingRepositoryStoreTest {
         assertEquals(10, snapshot?.lastKnownEpisodeCount)
         assertEquals(2, snapshot?.lastKnownSeasonCount)
         assertEquals(1, reminderDao.getAll().size)
+    }
+
+    @Test
+    fun markWatchedUpToEpisode_persistsEpisodesFromOneToSelectedEpisode() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val userEntryDao = FakeUserEntryDao(mediaDao)
+        val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
+        val store = TrackingRepositoryStore(
+            mediaDao = mediaDao,
+            userEntryDao = userEntryDao,
+            episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
+            nowProvider = { 1L },
+        )
+
+        store.upsertTrackedStatus(sampleItem(tmdbId = 511), WatchStatus.WATCHING)
+        store.markWatchedUpToEpisode(tmdbId = 511, seasonNumber = 2, episodeNumber = 3)
+
+        val watched = store.observeWatchedEpisodeNumbersBySeason(tmdbId = 511, seasonNumber = 2).first()
+        assertEquals(setOf(1, 2, 3), watched)
+    }
+
+    @Test
+    fun markUnwatchedFromEpisode_removesSelectedAndLaterEpisodesOnly() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val userEntryDao = FakeUserEntryDao(mediaDao)
+        val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
+        val store = TrackingRepositoryStore(
+            mediaDao = mediaDao,
+            userEntryDao = userEntryDao,
+            episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
+            nowProvider = { 1L },
+        )
+
+        store.upsertTrackedStatus(sampleItem(tmdbId = 512), WatchStatus.WATCHING)
+        store.markWatchedUpToEpisode(tmdbId = 512, seasonNumber = 1, episodeNumber = 5)
+
+        store.markUnwatchedFromEpisode(tmdbId = 512, seasonNumber = 1, episodeNumber = 3)
+
+        val watched = store.observeWatchedEpisodeNumbersBySeason(tmdbId = 512, seasonNumber = 1).first()
+        assertEquals(setOf(1, 2), watched)
+    }
+
+    @Test
+    fun clearTrackedStatus_keepsWatchedEpisodes() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val userEntryDao = FakeUserEntryDao(mediaDao)
+        val reminderDao = FakeEpisodeReminderStateDao()
+        val watchedDao = FakeWatchedEpisodeDao()
+        val store = TrackingRepositoryStore(
+            mediaDao = mediaDao,
+            userEntryDao = userEntryDao,
+            episodeReminderStateDao = reminderDao,
+            watchedEpisodeDao = watchedDao,
+            nowProvider = { 1L },
+        )
+
+        store.upsertTrackedStatus(sampleItem(tmdbId = 513), WatchStatus.WATCHING)
+        store.markWatchedUpToEpisode(tmdbId = 513, seasonNumber = 1, episodeNumber = 2)
+
+        store.clearTrackedStatus(tmdbId = 513, mediaType = MediaType.TV)
+
+        val watched = store.observeWatchedEpisodeNumbersBySeason(tmdbId = 513, seasonNumber = 1).first()
+        assertEquals(setOf(1, 2), watched)
     }
 
     private fun sampleItem(
@@ -462,6 +547,84 @@ class TrackingRepositoryStoreTest {
             }
             rowsByMediaId[state.mediaItemId] = state.copy(id = id)
             return id
+        }
+    }
+
+    private class FakeWatchedEpisodeDao : WatchedEpisodeDao {
+        private val rows = mutableListOf<WatchedEpisodeEntity>()
+        private val mutationTick = MutableStateFlow(0)
+        private var nextId = 1L
+
+        override fun observeEpisodeNumbersBySeason(mediaItemId: Long, seasonNumber: Int): Flow<List<Int>> {
+            return mutationTick.map {
+                rows.asSequence()
+                    .filter { row -> row.mediaItemId == mediaItemId && row.seasonNumber == seasonNumber }
+                    .map { row -> row.episodeNumber }
+                    .sorted()
+                    .toList()
+            }
+        }
+
+        override suspend fun getEpisodeNumbersBySeason(mediaItemId: Long, seasonNumber: Int): List<Int> {
+            return rows
+                .filter { row -> row.mediaItemId == mediaItemId && row.seasonNumber == seasonNumber }
+                .map { row -> row.episodeNumber }
+                .sorted()
+        }
+
+        override suspend fun getAll(): List<WatchedEpisodeEntity> {
+            return rows.sortedWith(compareBy({ it.mediaItemId }, { it.seasonNumber }, { it.episodeNumber }))
+        }
+
+        override suspend fun upsertAll(entries: List<WatchedEpisodeEntity>) {
+            entries.forEach { incoming ->
+                val existingIndex = rows.indexOfFirst { row ->
+                    row.mediaItemId == incoming.mediaItemId &&
+                        row.seasonNumber == incoming.seasonNumber &&
+                        row.episodeNumber == incoming.episodeNumber
+                }
+                if (existingIndex >= 0) {
+                    rows[existingIndex] = incoming.copy(id = rows[existingIndex].id)
+                } else {
+                    rows += incoming.copy(id = (if (incoming.id == 0L) nextId++ else incoming.id))
+                }
+            }
+            mutationTick.value += 1
+        }
+
+        override suspend fun deleteFromEpisode(mediaItemId: Long, seasonNumber: Int, episodeNumber: Int): Int {
+            val originalSize = rows.size
+            rows.removeAll { row ->
+                row.mediaItemId == mediaItemId &&
+                    row.seasonNumber == seasonNumber &&
+                    row.episodeNumber >= episodeNumber
+            }
+            val deleted = originalSize - rows.size
+            if (deleted > 0) {
+                mutationTick.value += 1
+            }
+            return deleted
+        }
+
+        override suspend fun deleteBySeason(mediaItemId: Long, seasonNumber: Int): Int {
+            val originalSize = rows.size
+            rows.removeAll { row ->
+                row.mediaItemId == mediaItemId && row.seasonNumber == seasonNumber
+            }
+            val deleted = originalSize - rows.size
+            if (deleted > 0) {
+                mutationTick.value += 1
+            }
+            return deleted
+        }
+
+        override suspend fun clearAll(): Int {
+            val size = rows.size
+            rows.clear()
+            if (size > 0) {
+                mutationTick.value += 1
+            }
+            return size
         }
     }
 }

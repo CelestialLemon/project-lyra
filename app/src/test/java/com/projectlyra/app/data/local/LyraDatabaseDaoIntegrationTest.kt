@@ -127,11 +127,21 @@ class LyraDatabaseDaoIntegrationTest {
                 lastKnownSeasonCount = 1,
             )
         )
+        db.watchedEpisodeDao().upsertAll(
+            listOf(
+                WatchedEpisodeEntity(
+                    mediaItemId = mediaId,
+                    seasonNumber = 1,
+                    episodeNumber = 2,
+                )
+            )
+        )
 
         db.mediaDao().clearAll()
 
         assertTrue(db.userEntryDao().getAllUserEntries().isEmpty())
         assertTrue(db.episodeReminderStateDao().getAll().isEmpty())
+        assertTrue(db.watchedEpisodeDao().getAll().isEmpty())
     }
 
     @Test
@@ -149,6 +159,25 @@ class LyraDatabaseDaoIntegrationTest {
 
         assertEquals(1, candidates.size)
         assertEquals(31, candidates.first().tmdbId)
+    }
+
+    @Test
+    fun watchedEpisodeDao_observesNumbersBySeasonInOrder() = runBlocking {
+        val mediaId = db.mediaDao().upsertMediaItem(media(33, "TV", "Watched Show"))
+        db.watchedEpisodeDao().upsertAll(
+            listOf(
+                WatchedEpisodeEntity(mediaItemId = mediaId, seasonNumber = 1, episodeNumber = 3),
+                WatchedEpisodeEntity(mediaItemId = mediaId, seasonNumber = 1, episodeNumber = 1),
+                WatchedEpisodeEntity(mediaItemId = mediaId, seasonNumber = 1, episodeNumber = 2),
+                WatchedEpisodeEntity(mediaItemId = mediaId, seasonNumber = 2, episodeNumber = 5),
+            )
+        )
+
+        val seasonOneEpisodes = db.watchedEpisodeDao().observeEpisodeNumbersBySeason(mediaId, 1).first()
+        val seasonTwoEpisodes = db.watchedEpisodeDao().observeEpisodeNumbersBySeason(mediaId, 2).first()
+
+        assertEquals(listOf(1, 2, 3), seasonOneEpisodes)
+        assertEquals(listOf(5), seasonTwoEpisodes)
     }
 
     private fun media(tmdbId: Int, mediaType: String, title: String): MediaItemEntity {

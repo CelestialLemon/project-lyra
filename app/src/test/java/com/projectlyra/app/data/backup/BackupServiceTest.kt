@@ -105,6 +105,15 @@ class BackupServiceTest {
                     updatedAt = 2L,
                 )
             )
+            database.watchedEpisodeDao().upsertAll(
+                listOf(
+                    com.projectlyra.app.data.local.WatchedEpisodeEntity(
+                        mediaItemId = referencedMediaId,
+                        seasonNumber = 1,
+                        episodeNumber = 4,
+                    )
+                )
+            )
     
             val file = File.createTempFile("lyra-backup-export", ".json", context.cacheDir)
             val uri = Uri.fromFile(file)
@@ -116,6 +125,9 @@ class BackupServiceTest {
             assertEquals(1, exported.mediaItems.size)
             assertEquals(101, exported.mediaItems.first().tmdbId)
             assertEquals(1, exported.userEntries.size)
+            assertEquals(1, exported.watchedEpisodes.size)
+            assertEquals(1, exported.watchedEpisodes.first().seasonNumber)
+            assertEquals(4, exported.watchedEpisodes.first().episodeNumber)
             file.delete()
         }
     }
@@ -150,10 +162,14 @@ class BackupServiceTest {
             val mediaItems = database.mediaDao().getAllMediaItems()
             val userEntries = database.userEntryDao().getAllUserEntries()
             val reminderStates = database.episodeReminderStateDao().getAll()
+            val watchedEpisodes = database.watchedEpisodeDao().getAll()
             assertEquals(1, mediaItems.size)
             assertEquals(600, mediaItems.first().tmdbId)
             assertEquals(1, userEntries.size)
             assertEquals(1, reminderStates.size)
+            assertEquals(1, watchedEpisodes.size)
+            assertEquals(1, watchedEpisodes.first().seasonNumber)
+            assertEquals(3, watchedEpisodes.first().episodeNumber)
     
             coVerify(exactly = 1) { settingsStore.updateReminder(enabled = true, hour = 20, minute = 5) }
             coVerify(exactly = 1) { settingsStore.updateIncludeApiKeyInBackup(false) }
@@ -249,6 +265,14 @@ class BackupServiceTest {
                     lastCheckedAt = 30L,
                     lastKnownEpisodeCount = 12,
                     lastKnownSeasonCount = 2,
+                )
+            ),
+            watchedEpisodes = listOf(
+                LyraBackupWatchedEpisode(
+                    tmdbId = 600,
+                    mediaType = "TV",
+                    seasonNumber = 1,
+                    episodeNumber = 3,
                 )
             ),
         )

@@ -21,7 +21,7 @@ class LyraDatabaseMigrationIntegrationTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
     @Test
-    fun migration1To4_preservesTrackedDataAndCreatesNewTables() {
+    fun migration1To5_preservesTrackedDataAndCreatesNewTables() {
         runBlocking {
             val name = "migration-v1-${UUID.randomUUID()}.db"
             context.deleteDatabase(name)
@@ -50,6 +50,7 @@ class LyraDatabaseMigrationIntegrationTest {
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "trending_cache"))
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "episode_reminder_state"))
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "genre_metadata"))
+            assertTrue(tableExists(migrated.openHelper.writableDatabase, "watched_episodes"))
             assertTrue(columnExists(migrated.openHelper.writableDatabase, "media_items", "genre_ids"))
     
             migrated.close()
@@ -58,7 +59,7 @@ class LyraDatabaseMigrationIntegrationTest {
     }
 
     @Test
-    fun migration2To4_preservesTrendingCacheRows() {
+    fun migration2To5_preservesTrendingCacheRows() {
         runBlocking {
             val name = "migration-v2-${UUID.randomUUID()}.db"
             context.deleteDatabase(name)
@@ -88,6 +89,7 @@ class LyraDatabaseMigrationIntegrationTest {
             assertEquals(99L, migrated.trendingCacheDao().latestCachedAt())
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "episode_reminder_state"))
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "genre_metadata"))
+            assertTrue(tableExists(migrated.openHelper.writableDatabase, "watched_episodes"))
             assertTrue(columnExists(migrated.openHelper.writableDatabase, "media_items", "genre_ids"))
     
             migrated.close()
@@ -96,7 +98,7 @@ class LyraDatabaseMigrationIntegrationTest {
     }
 
     @Test
-    fun migration3To4_preservesMediaAndAddsGenreSchema() {
+    fun migration3To5_preservesMediaAndAddsGenreSchema() {
         runBlocking {
             val name = "migration-v3-${UUID.randomUUID()}.db"
             context.deleteDatabase(name)
@@ -117,6 +119,41 @@ class LyraDatabaseMigrationIntegrationTest {
             assertEquals(1, migrated.mediaDao().mediaCount())
             assertTrue(columnExists(migrated.openHelper.writableDatabase, "media_items", "genre_ids"))
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "genre_metadata"))
+            assertTrue(tableExists(migrated.openHelper.writableDatabase, "watched_episodes"))
+
+            migrated.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
+    fun migration4To5_preservesTrackedDataAndAddsWatchedEpisodesTable() {
+        runBlocking {
+            val name = "migration-v4-${UUID.randomUUID()}.db"
+            context.deleteDatabase(name)
+            createLegacyDatabase(name = name, version = 4) { db ->
+                db.execSQL(
+                    """
+                    INSERT INTO media_items (tmdb_id, media_type, title, overview, poster_path, release_or_air_date, metadata_updated_at, genre_ids)
+                    VALUES (404, 'TV', 'Legacy TV v4', 'Overview', '/legacy-tv-v4.jpg', '2022-02-02', 40, '18,35')
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO user_entries (media_item_id, status, added_at, updated_at)
+                    VALUES (1, 'WATCHING', 10, 20)
+                    """.trimIndent()
+                )
+            }
+
+            val migrated = Room.databaseBuilder(context, LyraDatabase::class.java, name)
+                .addMigrations(*LyraDatabaseMigrations.ALL)
+                .allowMainThreadQueries()
+                .build()
+
+            assertEquals(1, migrated.mediaDao().mediaCount())
+            assertEquals(1, migrated.userEntryDao().getAllUserEntries().size)
+            assertTrue(tableExists(migrated.openHelper.writableDatabase, "watched_episodes"))
 
             migrated.close()
             context.deleteDatabase(name)
@@ -136,6 +173,9 @@ class LyraDatabaseMigrationIntegrationTest {
                 }
                 if (version >= 3) {
                     createVersion3Schema(db)
+                }
+                if (version >= 4) {
+                    createVersion4Schema(db)
                 }
             }
 
@@ -225,6 +265,24 @@ class LyraDatabaseMigrationIntegrationTest {
         )
         db.execSQL(
             "CREATE UNIQUE INDEX IF NOT EXISTS `index_episode_reminder_state_media_item_id` ON `episode_reminder_state` (`media_item_id`)"
+        )
+    }
+
+    private fun createVersion4Schema(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `media_items` ADD COLUMN `genre_ids` TEXT NOT NULL DEFAULT ''")
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `genre_metadata` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `genre_id` INTEGER NOT NULL,
+                `media_type` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `updated_at` INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_genre_metadata_genre_id_media_type` ON `genre_metadata` (`genre_id`, `media_type`)"
         )
     }
 

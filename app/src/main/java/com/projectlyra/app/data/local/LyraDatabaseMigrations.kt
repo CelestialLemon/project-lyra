@@ -67,9 +67,38 @@ object LyraDatabaseMigrations {
         }
     }
 
+    val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `watched_episodes` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `media_item_id` INTEGER NOT NULL,
+                    `season_number` INTEGER NOT NULL,
+                    `episode_number` INTEGER NOT NULL,
+                    FOREIGN KEY(`media_item_id`) REFERENCES `media_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS `index_watched_episodes_media_item_id_season_number_episode_number`
+                ON `watched_episodes` (`media_item_id`, `season_number`, `episode_number`)
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS `index_watched_episodes_media_item_id_season_number`
+                ON `watched_episodes` (`media_item_id`, `season_number`)
+                """.trimIndent()
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
         MIGRATION_3_4,
+        MIGRATION_4_5,
     )
 }

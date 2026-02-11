@@ -32,6 +32,13 @@ interface TmdbApiService {
         @Query("api_key") apiKey: String,
     ): TmdbTvDetailsDto
 
+    @GET("tv/{tv_id}/season/{season_number}")
+    suspend fun getTvSeasonDetails(
+        @Path("tv_id") tvId: Int,
+        @Path("season_number") seasonNumber: Int,
+        @Query("api_key") apiKey: String,
+    ): TmdbTvSeasonDetailsDto
+
     @GET("discover/movie")
     suspend fun discoverMovies(
         @Query("api_key") apiKey: String,
@@ -190,4 +197,32 @@ data class TmdbSeasonDto(
     val airDate: String?,
     @Json(name = "poster_path")
     val posterPath: String?,
+)
+
+data class TmdbTvSeasonDetailsDto(
+    @Json(name = "id")
+    val id: Int?,
+    @Json(name = "season_number")
+    val seasonNumber: Int?,
+    @Json(name = "name")
+    val name: String?,
+    @Json(name = "episodes")
+    val episodes: List<TmdbTvEpisodeDto>?,
+)
+
+data class TmdbTvEpisodeDto(
+    @Json(name = "id")
+    val id: Int?,
+    @Json(name = "episode_number")
+    val episodeNumber: Int?,
+    @Json(name = "name")
+    val name: String?,
+    @Json(name = "overview")
+    val overview: String? = null,
+    @Json(name = "still_path")
+    val stillPath: String?,
+    @Json(name = "air_date")
+    val airDate: String?,
+    @Json(name = "runtime")
+    val runtime: Int?,
 )

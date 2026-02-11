@@ -10,8 +10,9 @@ import androidx.room.RoomDatabase
         TrendingCacheEntity::class,
         EpisodeReminderStateEntity::class,
         GenreMetadataEntity::class,
+        WatchedEpisodeEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class LyraDatabase : RoomDatabase() {
@@ -20,4 +21,5 @@ abstract class LyraDatabase : RoomDatabase() {
     abstract fun trendingCacheDao(): TrendingCacheDao
     abstract fun episodeReminderStateDao(): EpisodeReminderStateDao
     abstract fun genreMetadataDao(): GenreMetadataDao
+    abstract fun watchedEpisodeDao(): WatchedEpisodeDao
 }

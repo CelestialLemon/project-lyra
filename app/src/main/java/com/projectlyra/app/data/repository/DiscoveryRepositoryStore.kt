@@ -199,6 +199,42 @@ internal class DiscoveryRepositoryStore(
         }
     }
 
+    suspend fun getTvSeasonDetails(
+        apiKey: String,
+        tvId: Int,
+        seasonNumber: Int,
+    ): TvSeasonDetailsResult {
+        val normalizedApiKey = apiKey.trim()
+        if (normalizedApiKey.isEmpty()) {
+            return TvSeasonDetailsResult.MissingApiKey
+        }
+        if (seasonNumber < 0) {
+            return TvSeasonDetailsResult.Error(message = "Unable to load episodes for this season right now.")
+        }
+
+        return try {
+            val seasonDetails = tmdbApiService.getTvSeasonDetails(
+                tvId = tvId,
+                seasonNumber = seasonNumber,
+                apiKey = normalizedApiKey,
+            ).toDomainOrNull(
+                tvId = tvId,
+                fallbackSeasonNumber = seasonNumber,
+            )
+
+            if (seasonDetails == null) {
+                TvSeasonDetailsResult.Error(message = "Unable to load episodes for this season right now.")
+            } else {
+                TvSeasonDetailsResult.Success(details = seasonDetails)
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                throw error
+            }
+            TvSeasonDetailsResult.Error(message = error.toUserFacingMessage())
+        }
+    }
+
     private suspend fun getRecommendations(
         apiKey: String,
         mediaType: MediaType,

@@ -20,6 +20,8 @@ import com.projectlyra.app.data.remote.TmdbSeasonDto
 import com.projectlyra.app.data.remote.TmdbTrendingItemDto
 import com.projectlyra.app.data.remote.TmdbTrendingResponse
 import com.projectlyra.app.data.remote.TmdbTvDetailsDto
+import com.projectlyra.app.data.remote.TmdbTvEpisodeDto
+import com.projectlyra.app.data.remote.TmdbTvSeasonDetailsDto
 import java.net.UnknownHostException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -325,6 +327,41 @@ class DiscoveryRepositoryStoreTest {
         assertTrue(error.message.contains("Cannot reach TMDB"))
     }
 
+    @Test
+    fun getTvSeasonDetails_returnsMissingApiKeyWhenNotConfigured() = runBlocking {
+        val store = DiscoveryRepositoryStore(
+            mediaDao = FakeMediaDao(),
+            trendingCacheDao = FakeTrendingCacheDao(FakeMediaDao()),
+            genreMetadataDao = FakeGenreMetadataDao(),
+            tmdbApiService = FakeTmdbApiService(),
+            nowProvider = { 8_000L },
+        )
+
+        val result = store.getTvSeasonDetails(apiKey = " ", tvId = 10, seasonNumber = 1)
+
+        assertTrue(result is TvSeasonDetailsResult.MissingApiKey)
+    }
+
+    @Test
+    fun getTvSeasonDetails_returnsMappedEpisodesOnSuccess() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val store = DiscoveryRepositoryStore(
+            mediaDao = mediaDao,
+            trendingCacheDao = FakeTrendingCacheDao(mediaDao),
+            genreMetadataDao = FakeGenreMetadataDao(),
+            tmdbApiService = FakeTmdbApiService(),
+            nowProvider = { 9_000L },
+        )
+
+        val result = store.getTvSeasonDetails(apiKey = "key", tvId = 10, seasonNumber = 2)
+
+        assertTrue(result is TvSeasonDetailsResult.Success)
+        val success = result as TvSeasonDetailsResult.Success
+        assertEquals(2, success.details.seasonNumber)
+        assertEquals(1, success.details.episodes.size)
+        assertEquals(1, success.details.episodes.first().episodeNumber)
+    }
+
     private class FakeMediaDao : MediaDao {
         private val itemsById = linkedMapOf<Long, MediaItemEntity>()
         private var nextId = 1L
@@ -482,6 +519,23 @@ class DiscoveryRepositoryStoreTest {
         var discoverTvHandler: suspend (String, String) -> TmdbDiscoverTvResponse = { _, _ ->
             TmdbDiscoverTvResponse()
         }
+        var tvSeasonDetailsHandler: suspend (Int, Int, String) -> TmdbTvSeasonDetailsDto = { tvId, seasonNumber, _ ->
+            TmdbTvSeasonDetailsDto(
+                id = tvId * 1_000 + seasonNumber,
+                seasonNumber = seasonNumber,
+                name = "Season $seasonNumber",
+                episodes = listOf(
+                    TmdbTvEpisodeDto(
+                        id = 1,
+                        episodeNumber = 1,
+                        name = "Episode 1",
+                        stillPath = "/still.jpg",
+                        airDate = "2024-01-01",
+                        runtime = 42,
+                    )
+                ),
+            )
+        }
         var movieGenresHandler: suspend (String) -> TmdbGenreListResponse = {
             TmdbGenreListResponse(genres = listOf(TmdbGenreDto(18, "Drama")))
         }
@@ -509,6 +563,14 @@ class DiscoveryRepositoryStoreTest {
 
         override suspend fun getTvDetails(tvId: Int, apiKey: String): TmdbTvDetailsDto {
             return tvDetailsHandler(tvId, apiKey)
+        }
+
+        override suspend fun getTvSeasonDetails(
+            tvId: Int,
+            seasonNumber: Int,
+            apiKey: String,
+        ): TmdbTvSeasonDetailsDto {
+            return tvSeasonDetailsHandler(tvId, seasonNumber, apiKey)
         }
 
         override suspend fun discoverMovies(

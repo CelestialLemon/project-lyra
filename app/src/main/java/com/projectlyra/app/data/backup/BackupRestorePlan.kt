@@ -3,6 +3,7 @@ package com.projectlyra.app.data.backup
 import com.projectlyra.app.data.local.EpisodeReminderStateEntity
 import com.projectlyra.app.data.local.MediaItemEntity
 import com.projectlyra.app.data.local.UserEntryEntity
+import com.projectlyra.app.data.local.WatchedEpisodeEntity
 
 internal data class RestorableUserEntry(
     val tmdbId: Int,
@@ -24,6 +25,14 @@ internal data class BackupRestorePlan(
     val mediaItems: List<MediaItemEntity>,
     val userEntries: List<RestorableUserEntry>,
     val episodeReminderStates: List<RestorableEpisodeReminderState>,
+    val watchedEpisodes: List<RestorableWatchedEpisode>,
+)
+
+internal data class RestorableWatchedEpisode(
+    val tmdbId: Int,
+    val mediaType: String,
+    val seasonNumber: Int,
+    val episodeNumber: Int,
 )
 
 internal object BackupRestorePlanFactory {
@@ -69,10 +78,22 @@ internal object BackupRestorePlanFactory {
             )
         }
 
+        val watchedEpisodes = document.watchedEpisodes.map { watchedEpisode ->
+            val normalizedMediaType = normalizeMediaType(watchedEpisode.mediaType)
+                ?: throw IllegalArgumentException("Unsupported media type ${watchedEpisode.mediaType}")
+            RestorableWatchedEpisode(
+                tmdbId = watchedEpisode.tmdbId,
+                mediaType = normalizedMediaType,
+                seasonNumber = watchedEpisode.seasonNumber,
+                episodeNumber = watchedEpisode.episodeNumber,
+            )
+        }
+
         return BackupRestorePlan(
             mediaItems = mediaItems,
             userEntries = userEntries,
             episodeReminderStates = reminderStates,
+            watchedEpisodes = watchedEpisodes,
         )
     }
 }
@@ -92,5 +113,13 @@ internal fun RestorableUserEntry.toEntity(mediaItemId: Long): UserEntryEntity {
         status = status,
         addedAt = addedAt,
         updatedAt = updatedAt,
+    )
+}
+
+internal fun RestorableWatchedEpisode.toEntity(mediaItemId: Long): WatchedEpisodeEntity {
+    return WatchedEpisodeEntity(
+        mediaItemId = mediaItemId,
+        seasonNumber = seasonNumber,
+        episodeNumber = episodeNumber,
     )
 }

@@ -4,12 +4,14 @@ import com.projectlyra.app.core.model.MediaDetails
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.TrendingItem
+import com.projectlyra.app.core.model.TvSeasonDetails
 import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.data.local.EpisodeReminderStateDao
 import com.projectlyra.app.data.local.GenreMetadataDao
 import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.TrendingCacheDao
 import com.projectlyra.app.data.local.UserEntryDao
+import com.projectlyra.app.data.local.WatchedEpisodeDao
 import com.projectlyra.app.data.remote.TmdbApiService
 import kotlinx.coroutines.flow.Flow
 
@@ -54,6 +56,18 @@ sealed interface SearchResult {
     data class Error(
         val message: String,
     ) : SearchResult
+}
+
+sealed interface TvSeasonDetailsResult {
+    data class Success(
+        val details: TvSeasonDetails,
+    ) : TvSeasonDetailsResult
+
+    data object MissingApiKey : TvSeasonDetailsResult
+
+    data class Error(
+        val message: String,
+    ) : TvSeasonDetailsResult
 }
 
 data class MovieRecommendationRequest(
@@ -104,6 +118,7 @@ class LibraryRepository(
     userEntryDao: UserEntryDao,
     trendingCacheDao: TrendingCacheDao,
     episodeReminderStateDao: EpisodeReminderStateDao,
+    watchedEpisodeDao: WatchedEpisodeDao,
     genreMetadataDao: GenreMetadataDao,
     tmdbApiService: TmdbApiService,
     private val nowProvider: () -> Long = System::currentTimeMillis,
@@ -112,6 +127,7 @@ class LibraryRepository(
         mediaDao = mediaDao,
         userEntryDao = userEntryDao,
         episodeReminderStateDao = episodeReminderStateDao,
+        watchedEpisodeDao = watchedEpisodeDao,
         nowProvider = nowProvider,
     )
 
@@ -150,6 +166,41 @@ class LibraryRepository(
         trackingStore.clearTrackedStatus(
             tmdbId = tmdbId,
             mediaType = mediaType,
+        )
+    }
+
+    suspend fun observeWatchedEpisodeNumbersBySeason(tmdbId: Int, seasonNumber: Int): Flow<Set<Int>> {
+        return trackingStore.observeWatchedEpisodeNumbersBySeason(
+            tmdbId = tmdbId,
+            seasonNumber = seasonNumber,
+        )
+    }
+
+    suspend fun markWatchedUpToEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+        trackingStore.markWatchedUpToEpisode(
+            tmdbId = tmdbId,
+            seasonNumber = seasonNumber,
+            episodeNumber = episodeNumber,
+        )
+    }
+
+    suspend fun markUnwatchedFromEpisode(tmdbId: Int, seasonNumber: Int, episodeNumber: Int) {
+        trackingStore.markUnwatchedFromEpisode(
+            tmdbId = tmdbId,
+            seasonNumber = seasonNumber,
+            episodeNumber = episodeNumber,
+        )
+    }
+
+    suspend fun markEpisodesWatched(
+        tmdbId: Int,
+        seasonNumber: Int,
+        episodeNumbers: Collection<Int>,
+    ) {
+        trackingStore.markEpisodesWatched(
+            tmdbId = tmdbId,
+            seasonNumber = seasonNumber,
+            episodeNumbers = episodeNumbers,
         )
     }
 
@@ -204,6 +255,18 @@ class LibraryRepository(
             apiKey = apiKey,
             tmdbId = tmdbId,
             mediaType = mediaType,
+        )
+    }
+
+    suspend fun getTvSeasonDetails(
+        apiKey: String,
+        tvId: Int,
+        seasonNumber: Int,
+    ): TvSeasonDetailsResult {
+        return discoveryStore.getTvSeasonDetails(
+            apiKey = apiKey,
+            tvId = tvId,
+            seasonNumber = seasonNumber,
         )
     }
 

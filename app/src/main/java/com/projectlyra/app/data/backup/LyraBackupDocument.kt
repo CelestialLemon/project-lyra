@@ -2,7 +2,7 @@ package com.projectlyra.app.data.backup
 
 import kotlinx.serialization.Serializable
 
-const val LYRA_BACKUP_SCHEMA_VERSION = 1
+const val LYRA_BACKUP_SCHEMA_VERSION = 2
 
 @Serializable
 data class LyraBackupDocument(
@@ -12,6 +12,7 @@ data class LyraBackupDocument(
     val mediaItems: List<LyraBackupMediaItem>,
     val userEntries: List<LyraBackupUserEntry>,
     val episodeReminderStates: List<LyraBackupEpisodeReminderState>,
+    val watchedEpisodes: List<LyraBackupWatchedEpisode> = emptyList(),
 )
 
 @Serializable
@@ -51,4 +52,12 @@ data class LyraBackupEpisodeReminderState(
     val lastCheckedAt: Long,
     val lastKnownEpisodeCount: Int? = null,
     val lastKnownSeasonCount: Int? = null,
+)
+
+@Serializable
+data class LyraBackupWatchedEpisode(
+    val tmdbId: Int,
+    val mediaType: String,
+    val seasonNumber: Int,
+    val episodeNumber: Int,
 )

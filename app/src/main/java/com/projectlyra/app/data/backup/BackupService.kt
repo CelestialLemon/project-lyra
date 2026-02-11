@@ -34,16 +34,19 @@ class BackupService(
         val mediaDao = database.mediaDao()
         val userEntryDao = database.userEntryDao()
         val episodeReminderStateDao = database.episodeReminderStateDao()
+        val watchedEpisodeDao = database.watchedEpisodeDao()
 
         val settings = settingsStore.settings.first()
         val mediaItems = mediaDao.getAllMediaItems()
         val userEntries = userEntryDao.getAllUserEntries()
         val reminderStates = episodeReminderStateDao.getAll()
+        val watchedEpisodes = watchedEpisodeDao.getAll()
 
         val mediaById = mediaItems.associateBy { it.id }
         val referencedMediaIds = buildSet {
             userEntries.forEach { entry -> add(entry.mediaItemId) }
             reminderStates.forEach { state -> add(state.mediaItemId) }
+            watchedEpisodes.forEach { entry -> add(entry.mediaItemId) }
         }
 
         val backupMediaItems = mediaItems
@@ -93,6 +96,20 @@ class BackupService(
             .sortedWith(compareBy({ it.mediaType }, { it.tmdbId }))
             .toList()
 
+        val backupWatchedEpisodes = watchedEpisodes
+            .asSequence()
+            .mapNotNull { watchedEpisode ->
+                val media = mediaById[watchedEpisode.mediaItemId] ?: return@mapNotNull null
+                LyraBackupWatchedEpisode(
+                    tmdbId = media.tmdbId,
+                    mediaType = media.mediaType,
+                    seasonNumber = watchedEpisode.seasonNumber,
+                    episodeNumber = watchedEpisode.episodeNumber,
+                )
+            }
+            .sortedWith(compareBy({ it.mediaType }, { it.tmdbId }, { it.seasonNumber }, { it.episodeNumber }))
+            .toList()
+
         val backupDocument = LyraBackupDocument(
             schemaVersion = LYRA_BACKUP_SCHEMA_VERSION,
             exportedAtEpochMs = System.currentTimeMillis(),
@@ -106,6 +123,7 @@ class BackupService(
             mediaItems = backupMediaItems,
             userEntries = backupUserEntries,
             episodeReminderStates = backupReminderStates,
+            watchedEpisodes = backupWatchedEpisodes,
         )
 
         val payload = runCatching { json.encodeToString(LyraBackupDocument.serializer(), backupDocument) }
@@ -157,12 +175,14 @@ class BackupService(
         val mediaDao = database.mediaDao()
         val userEntryDao = database.userEntryDao()
         val episodeReminderStateDao = database.episodeReminderStateDao()
+        val watchedEpisodeDao = database.watchedEpisodeDao()
         val trendingCacheDao = database.trendingCacheDao()
         val genreMetadataDao = database.genreMetadataDao()
 
         database.withTransaction {
             trendingCacheDao.clearAll()
             genreMetadataDao.clearAll()
+            watchedEpisodeDao.clearAll()
             episodeReminderStateDao.clearAll()
             userEntryDao.clearAll()
             mediaDao.clearAll()
@@ -193,6 +213,13 @@ class BackupService(
                 val mediaItemId = mediaIdByKey[mediaKey(state.tmdbId, state.mediaType)] ?: return@forEach
                 episodeReminderStateDao.upsert(state.toEntity(mediaItemId = mediaItemId))
             }
+
+            watchedEpisodeDao.upsertAll(
+                restorePlan.watchedEpisodes.mapNotNull { episode ->
+                    val mediaItemId = mediaIdByKey[mediaKey(episode.tmdbId, episode.mediaType)] ?: return@mapNotNull null
+                    episode.toEntity(mediaItemId = mediaItemId)
+                }
+            )
         }
 
         settingsStore.updateReminder(

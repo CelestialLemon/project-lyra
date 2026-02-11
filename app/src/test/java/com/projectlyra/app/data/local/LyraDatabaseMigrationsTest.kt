@@ -44,14 +44,29 @@ class LyraDatabaseMigrationsTest {
     }
 
     @Test
+    fun migration4To5_createsWatchedEpisodesTableAndIndexes() {
+        val executedSql = mutableListOf<String>()
+        val db = recordingDatabase(executedSql)
+
+        LyraDatabaseMigrations.MIGRATION_4_5.migrate(db)
+
+        assertTrue(executedSql.any { it.contains("CREATE TABLE IF NOT EXISTS `watched_episodes`") })
+        assertTrue(executedSql.any { it.contains("FOREIGN KEY(`media_item_id`) REFERENCES `media_items`(`id`)") })
+        assertTrue(executedSql.any { it.contains("index_watched_episodes_media_item_id_season_number_episode_number") })
+        assertTrue(executedSql.any { it.contains("index_watched_episodes_media_item_id_season_number") })
+    }
+
+    @Test
     fun allMigrations_areOrderedSequentially() {
-        assertEquals(3, LyraDatabaseMigrations.ALL.size)
+        assertEquals(4, LyraDatabaseMigrations.ALL.size)
         assertEquals(1, LyraDatabaseMigrations.ALL[0].startVersion)
         assertEquals(2, LyraDatabaseMigrations.ALL[0].endVersion)
         assertEquals(2, LyraDatabaseMigrations.ALL[1].startVersion)
         assertEquals(3, LyraDatabaseMigrations.ALL[1].endVersion)
         assertEquals(3, LyraDatabaseMigrations.ALL[2].startVersion)
         assertEquals(4, LyraDatabaseMigrations.ALL[2].endVersion)
+        assertEquals(4, LyraDatabaseMigrations.ALL[3].startVersion)
+        assertEquals(5, LyraDatabaseMigrations.ALL[3].endVersion)
     }
 
     private fun recordingDatabase(executedSql: MutableList<String>): SupportSQLiteDatabase {

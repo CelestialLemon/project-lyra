@@ -54,11 +54,66 @@ class BackupRestorePlanTest {
         assertEquals("WATCHING", plan.userEntries.first().status)
         assertEquals(1, plan.episodeReminderStates.size)
         assertEquals("MOVIE", plan.episodeReminderStates.first().mediaType)
+        assertEquals(1, plan.watchedEpisodes.size)
+        assertEquals("MOVIE", plan.watchedEpisodes.first().mediaType)
+    }
+
+    @Test
+    fun validator_rejectsDuplicateWatchedEpisodes() {
+        val doc = validDocument(
+            mediaType = "TV",
+            watchedEpisodes = listOf(
+                LyraBackupWatchedEpisode(
+                    tmdbId = 42,
+                    mediaType = "TV",
+                    seasonNumber = 1,
+                    episodeNumber = 2,
+                ),
+                LyraBackupWatchedEpisode(
+                    tmdbId = 42,
+                    mediaType = "TV",
+                    seasonNumber = 1,
+                    episodeNumber = 2,
+                ),
+            ),
+        )
+
+        val error = BackupDocumentValidator.validate(doc)
+
+        assertNotNull(error)
+        assertTrue(error!!.contains("duplicate watched episodes"))
+    }
+
+    @Test
+    fun validator_rejectsInvalidWatchedEpisodeBounds() {
+        val doc = validDocument(
+            watchedEpisodes = listOf(
+                LyraBackupWatchedEpisode(
+                    tmdbId = 42,
+                    mediaType = "MOVIE",
+                    seasonNumber = -1,
+                    episodeNumber = 0,
+                )
+            ),
+        )
+
+        val error = BackupDocumentValidator.validate(doc)
+
+        assertNotNull(error)
+        assertTrue(error!!.contains("invalid season number"))
     }
 
     private fun validDocument(
         mediaType: String = "MOVIE",
         status: String = "WATCHING",
+        watchedEpisodes: List<LyraBackupWatchedEpisode> = listOf(
+            LyraBackupWatchedEpisode(
+                tmdbId = 42,
+                mediaType = mediaType,
+                seasonNumber = 1,
+                episodeNumber = 1,
+            )
+        ),
     ): LyraBackupDocument {
         return LyraBackupDocument(
             schemaVersion = LYRA_BACKUP_SCHEMA_VERSION,
@@ -91,6 +146,7 @@ class BackupRestorePlanTest {
                     lastKnownSeasonCount = 2,
                 )
             ),
+            watchedEpisodes = watchedEpisodes,
         )
     }
 
