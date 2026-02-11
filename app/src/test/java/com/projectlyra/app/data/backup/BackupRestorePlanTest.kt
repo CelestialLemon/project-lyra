@@ -8,6 +8,18 @@ import org.junit.Test
 
 class BackupRestorePlanTest {
     @Test
+    fun validator_acceptsSchemaVersion1Backups() {
+        val doc = validDocument().copy(
+            schemaVersion = 1,
+            watchedEpisodes = emptyList(),
+        )
+
+        val error = BackupDocumentValidator.validate(doc)
+
+        assertNull(error)
+    }
+
+    @Test
     fun validator_rejectsDuplicateUserEntries() {
         val doc = validDocument().copy(
             userEntries = listOf(

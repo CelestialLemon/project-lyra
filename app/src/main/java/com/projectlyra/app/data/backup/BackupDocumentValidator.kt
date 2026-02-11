@@ -4,8 +4,10 @@ import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.WatchStatus
 
 internal object BackupDocumentValidator {
+    private val SUPPORTED_SCHEMA_VERSIONS = setOf(1, LYRA_BACKUP_SCHEMA_VERSION)
+
     fun validate(document: LyraBackupDocument): String? {
-        if (document.schemaVersion != LYRA_BACKUP_SCHEMA_VERSION) {
+        if (document.schemaVersion !in SUPPORTED_SCHEMA_VERSIONS) {
             return "Unsupported backup schema version ${document.schemaVersion}."
         }
 

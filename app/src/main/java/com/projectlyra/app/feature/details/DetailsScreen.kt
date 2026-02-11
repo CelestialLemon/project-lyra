@@ -225,6 +225,17 @@ private fun DetailsScreen(
                 }
             }
 
+            if (uiState.episodeMutationErrorMessage != null) {
+                item {
+                    Text(
+                        text = uiState.episodeMutationErrorMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
+            }
+
             if (!uiState.isSeasonLoading && uiState.seasonErrorMessage == null) {
                 if (uiState.selectedSeasonEpisodes.isEmpty()) {
                     item {

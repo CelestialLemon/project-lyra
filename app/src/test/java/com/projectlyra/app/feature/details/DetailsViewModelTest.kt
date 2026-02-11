@@ -242,6 +242,49 @@ class DetailsViewModelTest {
         }
     }
 
+    @Test
+    fun onEpisodeMutationFailure_setsMutationErrorWithoutSeasonLoadError() = runTest {
+        val repository = mockk<LibraryRepository>()
+        val settingsStore = mockk<SettingsStore>()
+        every { settingsStore.settings } returns flowOf(AppSettings(apiKey = "key"))
+        every { repository.observeTrackedStatusesByMediaKey() } returns flowOf(emptyMap())
+        coEvery {
+            repository.getMediaDetails(apiKey = "key", tmdbId = 102, mediaType = MediaType.TV)
+        } returns MediaDetailsResult.Success(
+            details = sampleTvDetails(
+                tmdbId = 102,
+                seasons = listOf(
+                    SeasonSummary(seasonNumber = 1, name = "Season 1", episodeCount = 4, airDate = null, posterPath = null),
+                )
+            )
+        )
+        coEvery {
+            repository.getTvSeasonDetails(apiKey = "key", tvId = 102, seasonNumber = 1)
+        } returns TvSeasonDetailsResult.Success(details = sampleSeasonDetails(tvId = 102, seasonNumber = 1))
+        coEvery {
+            repository.observeWatchedEpisodeNumbersBySeason(tmdbId = 102, seasonNumber = 1)
+        } returns flowOf(emptySet())
+        coEvery {
+            repository.markWatchedUpToEpisode(tmdbId = 102, seasonNumber = 1, episodeNumber = 2)
+        } throws IllegalStateException("write failed")
+
+        val viewModel = DetailsViewModel(
+            tmdbId = 102,
+            mediaType = MediaType.TV,
+            libraryRepository = repository,
+            settingsStore = settingsStore,
+        )
+        advanceUntilIdle()
+
+        viewModel.onMarkEpisodeWatchedUpTo(2)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.episodeMutationErrorMessage?.contains("Unable to update episode progress") == true)
+        assertEquals(null, state.seasonErrorMessage)
+        assertTrue(state.selectedSeasonEpisodes.isNotEmpty())
+    }
+
     private fun sampleMovieDetails(): MediaDetails {
         return MediaDetails(
             tmdbId = 7,

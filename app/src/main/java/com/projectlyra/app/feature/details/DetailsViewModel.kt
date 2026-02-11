@@ -34,6 +34,7 @@ data class DetailsUiState(
     val watchedEpisodeNumbers: Set<Int> = emptySet(),
     val isSeasonLoading: Boolean = false,
     val seasonErrorMessage: String? = null,
+    val episodeMutationErrorMessage: String? = null,
     val trackedStatus: WatchStatus? = null,
     val infoMessage: String? = null,
     val errorMessage: String? = null,
@@ -78,6 +79,7 @@ class DetailsViewModel(
                             watchedEpisodeNumbers = emptySet(),
                             isSeasonLoading = false,
                             seasonErrorMessage = null,
+                            episodeMutationErrorMessage = null,
                         )
                     }
                     if (mediaType == MediaType.TV) {
@@ -111,6 +113,7 @@ class DetailsViewModel(
                             watchedEpisodeNumbers = emptySet(),
                             isSeasonLoading = false,
                             seasonErrorMessage = null,
+                            episodeMutationErrorMessage = null,
                         )
                     }
                     if (mediaType == MediaType.TV) {
@@ -140,6 +143,7 @@ class DetailsViewModel(
                             watchedEpisodeNumbers = emptySet(),
                             isSeasonLoading = false,
                             seasonErrorMessage = null,
+                            episodeMutationErrorMessage = null,
                         )
                     }
                     if (mediaType == MediaType.TV) {
@@ -185,6 +189,7 @@ class DetailsViewModel(
                 selectedSeasonEpisodes = seasonCache[seasonNumber]?.episodes.orEmpty(),
                 watchedEpisodeNumbers = emptySet(),
                 seasonErrorMessage = null,
+                episodeMutationErrorMessage = null,
                 isSeasonLoading = seasonNumber !in seasonCache,
             )
         }
@@ -194,7 +199,7 @@ class DetailsViewModel(
 
     fun retrySelectedSeason() {
         val seasonNumber = _uiState.value.selectedSeasonNumber ?: return
-        _uiState.update { it.copy(seasonErrorMessage = null) }
+        _uiState.update { it.copy(seasonErrorMessage = null, episodeMutationErrorMessage = null) }
         loadSeasonIfNeeded(seasonNumber = seasonNumber, forceRefresh = true)
     }
 
@@ -204,15 +209,18 @@ class DetailsViewModel(
             return
         }
         viewModelScope.launch {
+            _uiState.update { it.copy(episodeMutationErrorMessage = null) }
             runCatching {
                 libraryRepository.markWatchedUpToEpisode(
                     tmdbId = tmdbId,
                     seasonNumber = seasonNumber,
                     episodeNumber = episodeNumber,
                 )
+            }.onSuccess {
+                _uiState.update { state -> state.copy(episodeMutationErrorMessage = null) }
             }.onFailure {
                 _uiState.update { state ->
-                    state.copy(seasonErrorMessage = "Unable to update episode progress right now.")
+                    state.copy(episodeMutationErrorMessage = "Unable to update episode progress right now.")
                 }
             }
         }
@@ -224,15 +232,18 @@ class DetailsViewModel(
             return
         }
         viewModelScope.launch {
+            _uiState.update { it.copy(episodeMutationErrorMessage = null) }
             runCatching {
                 libraryRepository.markUnwatchedFromEpisode(
                     tmdbId = tmdbId,
                     seasonNumber = seasonNumber,
                     episodeNumber = episodeNumber,
                 )
+            }.onSuccess {
+                _uiState.update { state -> state.copy(episodeMutationErrorMessage = null) }
             }.onFailure {
                 _uiState.update { state ->
-                    state.copy(seasonErrorMessage = "Unable to update episode progress right now.")
+                    state.copy(episodeMutationErrorMessage = "Unable to update episode progress right now.")
                 }
             }
         }
@@ -249,15 +260,18 @@ class DetailsViewModel(
             return
         }
         viewModelScope.launch {
+            _uiState.update { it.copy(episodeMutationErrorMessage = null) }
             runCatching {
                 libraryRepository.markEpisodesWatched(
                     tmdbId = tmdbId,
                     seasonNumber = seasonNumber,
                     episodeNumbers = eligibleEpisodes,
                 )
+            }.onSuccess {
+                _uiState.update { state -> state.copy(episodeMutationErrorMessage = null) }
             }.onFailure {
                 _uiState.update { state ->
-                    state.copy(seasonErrorMessage = "Unable to mark this season as complete right now.")
+                    state.copy(episodeMutationErrorMessage = "Unable to mark this season as complete right now.")
                 }
             }
         }
@@ -282,6 +296,7 @@ class DetailsViewModel(
                     watchedEpisodeNumbers = emptySet(),
                     isSeasonLoading = false,
                     seasonErrorMessage = null,
+                    episodeMutationErrorMessage = null,
                 )
             }
             return
@@ -294,6 +309,7 @@ class DetailsViewModel(
                 watchedEpisodeNumbers = emptySet(),
                 isSeasonLoading = selected !in seasonCache,
                 seasonErrorMessage = null,
+                episodeMutationErrorMessage = null,
             )
         }
         observeWatchedSeason(selected)
@@ -329,6 +345,7 @@ class DetailsViewModel(
                         selectedSeasonEpisodes = seasonCache[seasonNumber]?.episodes.orEmpty(),
                         isSeasonLoading = false,
                         seasonErrorMessage = null,
+                        episodeMutationErrorMessage = null,
                     )
                 }
             }
@@ -343,6 +360,7 @@ class DetailsViewModel(
                     state.copy(
                         isSeasonLoading = true,
                         seasonErrorMessage = null,
+                        episodeMutationErrorMessage = null,
                         selectedSeasonEpisodes = if (forceRefresh) emptyList() else state.selectedSeasonEpisodes,
                     )
                 }
@@ -366,6 +384,7 @@ class DetailsViewModel(
                                 selectedSeasonEpisodes = result.details.episodes,
                                 isSeasonLoading = false,
                                 seasonErrorMessage = null,
+                                episodeMutationErrorMessage = null,
                             )
                         }
                     }
