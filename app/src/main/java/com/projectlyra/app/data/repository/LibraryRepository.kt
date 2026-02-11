@@ -6,6 +6,7 @@ import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.core.model.WatchStatus
 import com.projectlyra.app.data.local.EpisodeReminderStateDao
+import com.projectlyra.app.data.local.GenreMetadataDao
 import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.TrendingCacheDao
 import com.projectlyra.app.data.local.UserEntryDao
@@ -55,6 +56,35 @@ sealed interface SearchResult {
     ) : SearchResult
 }
 
+data class MovieRecommendationRequest(
+    val genreIds: List<Int>,
+    val limit: Int = 20,
+)
+
+data class TvRecommendationRequest(
+    val genreIds: List<Int>,
+    val limit: Int = 20,
+)
+
+sealed interface RecommendationResult {
+    data class Success(
+        val items: List<TrendingItem>,
+        val isPersonalized: Boolean,
+        val usedFallback: Boolean,
+        val infoMessage: String? = null,
+    ) : RecommendationResult
+
+    data class MissingApiKey(
+        val fallbackItems: List<TrendingItem>,
+        val message: String,
+    ) : RecommendationResult
+
+    data class Error(
+        val fallbackItems: List<TrendingItem>,
+        val message: String,
+    ) : RecommendationResult
+}
+
 data class ReminderTrackedShow(
     val localId: Long,
     val tmdbId: Int,
@@ -74,6 +104,7 @@ class LibraryRepository(
     userEntryDao: UserEntryDao,
     trendingCacheDao: TrendingCacheDao,
     episodeReminderStateDao: EpisodeReminderStateDao,
+    genreMetadataDao: GenreMetadataDao,
     tmdbApiService: TmdbApiService,
     private val nowProvider: () -> Long = System::currentTimeMillis,
 ) {
@@ -87,6 +118,7 @@ class LibraryRepository(
     private val discoveryStore = DiscoveryRepositoryStore(
         mediaDao = mediaDao,
         trendingCacheDao = trendingCacheDao,
+        genreMetadataDao = genreMetadataDao,
         tmdbApiService = tmdbApiService,
         nowProvider = nowProvider,
     )
@@ -119,6 +151,14 @@ class LibraryRepository(
             tmdbId = tmdbId,
             mediaType = mediaType,
         )
+    }
+
+    suspend fun getResumeHeroCandidate(): TrackedItem? {
+        return trackingStore.getResumeCandidate()
+    }
+
+    suspend fun getTopCompletedGenreIds(mediaType: MediaType, limit: Int = 3): List<Int> {
+        return trackingStore.getTopCompletedGenreIds(mediaType = mediaType, limit = limit)
     }
 
     suspend fun getTvReminderCandidates(): List<ReminderTrackedShow> {
@@ -164,6 +204,28 @@ class LibraryRepository(
             apiKey = apiKey,
             tmdbId = tmdbId,
             mediaType = mediaType,
+        )
+    }
+
+    suspend fun getRecommendedMovies(
+        apiKey: String,
+        request: MovieRecommendationRequest,
+    ): RecommendationResult {
+        return discoveryStore.getMovieRecommendations(
+            apiKey = apiKey,
+            request = request,
+            trackedMediaKeys = trackingStore.getTrackedMediaKeys(),
+        )
+    }
+
+    suspend fun getRecommendedTvShows(
+        apiKey: String,
+        request: TvRecommendationRequest,
+    ): RecommendationResult {
+        return discoveryStore.getTvRecommendations(
+            apiKey = apiKey,
+            request = request,
+            trackedMediaKeys = trackingStore.getTrackedMediaKeys(),
         )
     }
 

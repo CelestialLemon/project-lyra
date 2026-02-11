@@ -45,8 +45,31 @@ object LyraDatabaseMigrations {
         }
     }
 
+    val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `media_items` ADD COLUMN `genre_ids` TEXT NOT NULL DEFAULT ''"
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `genre_metadata` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `genre_id` INTEGER NOT NULL,
+                    `media_type` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `updated_at` INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_genre_metadata_genre_id_media_type` ON `genre_metadata` (`genre_id`, `media_type`)"
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
+        MIGRATION_3_4,
     )
 }

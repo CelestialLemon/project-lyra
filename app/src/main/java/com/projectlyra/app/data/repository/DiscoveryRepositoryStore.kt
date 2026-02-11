@@ -2,6 +2,8 @@ package com.projectlyra.app.data.repository
 
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.TrendingItem
+import com.projectlyra.app.data.local.GenreMetadataDao
+import com.projectlyra.app.data.local.GenreMetadataEntity
 import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.MediaItemEntity
 import com.projectlyra.app.data.local.TrendingCacheDao
@@ -12,13 +14,17 @@ import kotlinx.coroutines.CancellationException
 internal class DiscoveryRepositoryStore(
     private val mediaDao: MediaDao,
     private val trendingCacheDao: TrendingCacheDao,
+    private val genreMetadataDao: GenreMetadataDao,
     private val tmdbApiService: TmdbApiService,
     private val nowProvider: () -> Long,
 ) {
     companion object {
         private const val TRENDING_CACHE_TTL_MS = 6 * 60 * 60 * 1000L
+        private const val GENRE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000L
         private const val TRENDING_LIMIT = 20
         private const val SEARCH_LIMIT = 30
+        private const val PROFILE_GENRE_LIMIT = 3
+        private const val DEFAULT_RECOMMENDATION_LIMIT = 20
     }
 
     suspend fun getCachedTrending(): List<TrendingItem> {
@@ -108,6 +114,46 @@ internal class DiscoveryRepositoryStore(
         }
     }
 
+    suspend fun getMovieRecommendations(
+        apiKey: String,
+        request: MovieRecommendationRequest,
+        trackedMediaKeys: Set<String>,
+    ): RecommendationResult {
+        return getRecommendations(
+            apiKey = apiKey,
+            mediaType = MediaType.MOVIE,
+            rawGenreIds = request.genreIds,
+            limit = request.limit,
+            trackedMediaKeys = trackedMediaKeys,
+            discover = { normalizedApiKey, withGenres ->
+                tmdbApiService.discoverMovies(
+                    apiKey = normalizedApiKey,
+                    withGenres = withGenres,
+                ).results.mapNotNull { dto -> dto.toDomainOrNull() }
+            },
+        )
+    }
+
+    suspend fun getTvRecommendations(
+        apiKey: String,
+        request: TvRecommendationRequest,
+        trackedMediaKeys: Set<String>,
+    ): RecommendationResult {
+        return getRecommendations(
+            apiKey = apiKey,
+            mediaType = MediaType.TV,
+            rawGenreIds = request.genreIds,
+            limit = request.limit,
+            trackedMediaKeys = trackedMediaKeys,
+            discover = { normalizedApiKey, withGenres ->
+                tmdbApiService.discoverTvShows(
+                    apiKey = normalizedApiKey,
+                    withGenres = withGenres,
+                ).results.mapNotNull { dto -> dto.toDomainOrNull() }
+            },
+        )
+    }
+
     suspend fun getMediaDetails(
         apiKey: String,
         tmdbId: Int,
@@ -134,6 +180,11 @@ internal class DiscoveryRepositoryStore(
                 )
             } else {
                 val now = nowProvider()
+                upsertGenreMetadata(
+                    mediaType = mediaType,
+                    genreEntries = remoteDetails.genreIds.zip(remoteDetails.genres),
+                    updatedAt = now,
+                )
                 upsertMediaMetadata(item = remoteDetails.asTrendingItem(), metadataUpdatedAt = now)
                 MediaDetailsResult.Success(details = remoteDetails)
             }
@@ -145,6 +196,161 @@ internal class DiscoveryRepositoryStore(
                 localFallback = localFallback,
                 message = error.toUserFacingMessage(),
             )
+        }
+    }
+
+    private suspend fun getRecommendations(
+        apiKey: String,
+        mediaType: MediaType,
+        rawGenreIds: List<Int>,
+        limit: Int,
+        trackedMediaKeys: Set<String>,
+        discover: suspend (normalizedApiKey: String, withGenres: String) -> List<TrendingItem>,
+    ): RecommendationResult {
+        val cappedLimit = limit.coerceIn(1, DEFAULT_RECOMMENDATION_LIMIT)
+        val fallback = loadFallbackItems(
+            apiKey = apiKey,
+            mediaType = mediaType,
+            limit = cappedLimit,
+            trackedMediaKeys = trackedMediaKeys,
+        )
+        val normalizedApiKey = apiKey.trim()
+        if (normalizedApiKey.isEmpty()) {
+            return RecommendationResult.MissingApiKey(
+                fallbackItems = fallback,
+                message = "Set a TMDB API key in Settings to load live recommendations.",
+            )
+        }
+
+        val normalizedGenres = rawGenreIds.filter { it > 0 }.distinct().take(PROFILE_GENRE_LIMIT)
+        if (normalizedGenres.isEmpty()) {
+            return RecommendationResult.Success(
+                items = fallback,
+                isPersonalized = false,
+                usedFallback = true,
+                infoMessage = "Showing fallback picks until completed titles establish genre preferences.",
+            )
+        }
+
+        return try {
+            refreshGenreMetadataIfStale(apiKey = normalizedApiKey)
+
+            val personalizedItems = discover(normalizedApiKey, normalizedGenres.joinToString(","))
+                .distinctBy { item -> statusKey(tmdbId = item.tmdbId, mediaType = item.mediaType) }
+                .filterNot { item -> statusKey(item.tmdbId, item.mediaType) in trackedMediaKeys }
+                .take(cappedLimit)
+
+            if (personalizedItems.isEmpty()) {
+                RecommendationResult.Success(
+                    items = fallback,
+                    isPersonalized = false,
+                    usedFallback = true,
+                    infoMessage = "No personalized matches right now. Showing fallback picks.",
+                )
+            } else {
+                RecommendationResult.Success(
+                    items = personalizedItems,
+                    isPersonalized = true,
+                    usedFallback = false,
+                )
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                throw error
+            }
+            RecommendationResult.Error(
+                fallbackItems = fallback,
+                message = error.toUserFacingMessage(),
+            )
+        }
+    }
+
+    private suspend fun refreshGenreMetadataIfStale(apiKey: String) {
+        refreshGenreMetadataIfStale(mediaType = MediaType.MOVIE, apiKey = apiKey)
+        refreshGenreMetadataIfStale(mediaType = MediaType.TV, apiKey = apiKey)
+    }
+
+    private suspend fun refreshGenreMetadataIfStale(mediaType: MediaType, apiKey: String) {
+        val latest = genreMetadataDao.latestUpdatedAt(mediaType.name)
+        if (latest != null && nowProvider() - latest <= GENRE_CACHE_TTL_MS) {
+            return
+        }
+
+        val now = nowProvider()
+        val genres = when (mediaType) {
+            MediaType.MOVIE -> tmdbApiService.getMovieGenres(apiKey = apiKey).genres
+            MediaType.TV -> tmdbApiService.getTvGenres(apiKey = apiKey).genres
+        }.mapNotNull { dto ->
+            val name = dto.name?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            dto.id.takeIf { it > 0 }?.let { genreId -> genreId to name }
+        }
+
+        upsertGenreMetadata(mediaType = mediaType, genreEntries = genres, updatedAt = now)
+    }
+
+    private suspend fun upsertGenreMetadata(
+        mediaType: MediaType,
+        genreEntries: List<Pair<Int, String>>,
+        updatedAt: Long,
+    ) {
+        if (genreEntries.isEmpty()) {
+            return
+        }
+
+        genreMetadataDao.upsertAll(
+            genreEntries
+                .distinctBy { (genreId, _) -> genreId }
+                .map { (genreId, name) ->
+                    GenreMetadataEntity(
+                        genreId = genreId,
+                        mediaType = mediaType.name,
+                        name = name,
+                        updatedAt = updatedAt,
+                    )
+                }
+        )
+    }
+
+    private suspend fun loadFallbackItems(
+        apiKey: String,
+        mediaType: MediaType,
+        limit: Int,
+        trackedMediaKeys: Set<String>,
+    ): List<TrendingItem> {
+        val cachedCandidates = getCachedTrending()
+            .filter { item -> item.mediaType == mediaType }
+            .filterNot { item -> statusKey(item.tmdbId, item.mediaType) in trackedMediaKeys }
+            .take(limit)
+        if (cachedCandidates.isNotEmpty()) {
+            return cachedCandidates
+        }
+
+        val normalizedApiKey = apiKey.trim()
+        if (normalizedApiKey.isEmpty()) {
+            return cachedCandidates
+        }
+
+        return try {
+            val remoteTrending = tmdbApiService.getTrendingAllDay(normalizedApiKey)
+                .results
+                .mapNotNull { dto -> dto.toDomainOrNull() }
+                .distinctBy { item -> statusKey(tmdbId = item.tmdbId, mediaType = item.mediaType) }
+                .take(TRENDING_LIMIT)
+
+            if (remoteTrending.isNotEmpty()) {
+                cacheTrending(items = remoteTrending, cachedAt = nowProvider())
+            }
+
+            remoteTrending
+                .filter { item -> item.mediaType == mediaType }
+                .filterNot { item -> statusKey(item.tmdbId, item.mediaType) in trackedMediaKeys }
+                .take(limit)
+                .ifEmpty { cachedCandidates }
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                throw error
+            }
+            cachedCandidates
         }
     }
 
@@ -184,6 +390,8 @@ internal class DiscoveryRepositoryStore(
                 overview = item.overview,
                 posterPath = item.posterPath,
                 releaseOrAirDate = item.releaseOrAirDate,
+                genreIdsCsv = item.genreIds.takeIf { it.isNotEmpty() }?.toGenreIdsCsv()
+                    ?: existing?.genreIdsCsv.orEmpty(),
                 metadataUpdatedAt = metadataUpdatedAt,
             )
         )

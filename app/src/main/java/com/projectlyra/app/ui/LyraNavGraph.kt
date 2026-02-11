@@ -38,11 +38,11 @@ internal fun LyraNavGraph(
             Box(modifier = Modifier.padding(innerPadding)) {
                 HomeRoute(
                     factory = dependencies.homeFactory,
-                    onOpenDetails = { item ->
+                    onOpenDetails = { mediaType, tmdbId ->
                         navController.navigate(
                             DetailsDestination.route(
-                                mediaType = item.mediaType,
-                                tmdbId = item.tmdbId,
+                                mediaType = mediaType,
+                                tmdbId = tmdbId,
                             )
                         )
                     },

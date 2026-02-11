@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -26,13 +28,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.projectlyra.app.core.model.MediaType
+import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.ui.components.PosterCard
 
 @Composable
 fun HomeRoute(
     factory: HomeViewModelFactory,
-    onOpenDetails: (TrendingItem) -> Unit,
+    onOpenDetails: (mediaType: MediaType, tmdbId: Int) -> Unit,
     viewModel: HomeViewModel = viewModel(factory = factory),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -48,14 +52,17 @@ fun HomeRoute(
 private fun HomeScreen(
     uiState: HomeUiState,
     onRetry: () -> Unit,
-    onOpenDetails: (TrendingItem) -> Unit,
+    onOpenDetails: (mediaType: MediaType, tmdbId: Int) -> Unit,
 ) {
-    if (uiState.isLoading && uiState.trending.isEmpty()) {
+    val hasAnyRailItems = uiState.movieRail.items.isNotEmpty() || uiState.tvRail.items.isNotEmpty()
+    val hasAnyContent = uiState.resumeHero != null || hasAnyRailItems
+
+    if (uiState.isLoading && !hasAnyContent) {
         FullscreenLoading()
         return
     }
 
-    if (uiState.errorMessage != null && uiState.trending.isEmpty()) {
+    if (uiState.errorMessage != null && !hasAnyContent) {
         FullscreenError(
             message = uiState.errorMessage,
             onRetry = onRetry,
@@ -83,99 +90,59 @@ private fun HomeScreen(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp),
             ) {
                 Text(
-                    text = "Tonight's Trending",
+                    text = "Continue Watching",
                     style = MaterialTheme.typography.displaySmall,
                 )
                 Text(
-                    text = "Live TMDB discovery with cached fallback.",
+                    text = "Jump back into your latest in-progress title.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
-        if (uiState.isLoading) {
+        if (uiState.resumeHero != null) {
             item {
-                LinearProgressIndicator(
+                ResumeHeroCard(
+                    item = uiState.resumeHero,
+                    onOpenDetails = { onOpenDetails(uiState.resumeHero.mediaType, uiState.resumeHero.tmdbId) },
+                    onEditStatus = { onOpenDetails(uiState.resumeHero.mediaType, uiState.resumeHero.tmdbId) },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth(),
                 )
             }
         }
 
         if (uiState.errorMessage != null) {
             item {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                ) {
-                    Text(
-                        text = uiState.errorMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    Button(onClick = onRetry) {
-                        Text("Retry")
-                    }
-                }
-            }
-        } else if (uiState.isShowingCachedData) {
-            item {
                 Text(
-                    text = "Showing cached trending results.",
+                    text = uiState.errorMessage,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         }
 
-        if (uiState.trending.isEmpty()) {
-            item {
-                Text(
-                    text = "No trending titles available.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-        } else {
-            item {
-                val hero = uiState.trending.firstOrNull()
-                if (hero != null) {
-                    TrendingCard(
-                        item = hero,
-                        onOpenDetails = { onOpenDetails(hero) },
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth(),
-                    )
-                }
-            }
+        item {
+            RecommendationRailSection(
+                title = "Recommended Movies",
+                railState = uiState.movieRail,
+                emptyMessage = "No movie recommendations available yet.",
+                onRetry = onRetry,
+                onOpenDetails = { item -> onOpenDetails(item.mediaType, item.tmdbId) },
+            )
+        }
 
-            if (uiState.trending.size > 1) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = "Hot Right Now",
-                            style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                        )
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                        ) {
-                            items(uiState.trending.drop(1)) { item ->
-                                TrendingCard(
-                                    item = item,
-                                    onOpenDetails = { onOpenDetails(item) },
-                                    modifier = Modifier.fillParentMaxWidth(0.78f),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+        item {
+            RecommendationRailSection(
+                title = "Recommended TV Shows",
+                railState = uiState.tvRail,
+                emptyMessage = "No TV recommendations available yet.",
+                onRetry = onRetry,
+                onOpenDetails = { item -> onOpenDetails(item.mediaType, item.tmdbId) },
+            )
         }
 
         item {
@@ -185,17 +152,115 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun TrendingCard(
-    item: TrendingItem,
+private fun ResumeHeroCard(
+    item: TrackedItem,
     onOpenDetails: () -> Unit,
+    onEditStatus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    PosterCard(
-        title = item.title,
-        posterPath = item.posterPath,
+    Column(
         modifier = modifier,
-        onClick = onOpenDetails,
-    )
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        PosterCard(
+            title = item.title,
+            posterPath = item.posterPath,
+            onClick = onOpenDetails,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedButton(
+                onClick = onOpenDetails,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Open Details")
+            }
+            Button(
+                onClick = onEditStatus,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Edit Status")
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecommendationRailSection(
+    title: String,
+    railState: RecommendationRailUiState,
+    emptyMessage: String,
+    onRetry: () -> Unit,
+    onOpenDetails: (TrendingItem) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+
+        if (railState.isLoading) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            )
+        }
+
+        if (railState.infoMessage != null) {
+            Text(
+                text = railState.infoMessage,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+
+        if (railState.errorMessage != null) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) {
+                Text(
+                    text = railState.errorMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                OutlinedButton(onClick = onRetry) {
+                    Text("Retry")
+                }
+            }
+        }
+
+        if (!railState.isLoading && railState.items.isEmpty()) {
+            Text(
+                text = emptyMessage,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+
+        if (railState.items.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+            ) {
+                items(railState.items) { item ->
+                    PosterCard(
+                        title = item.title,
+                        posterPath = item.posterPath,
+                        onClick = { onOpenDetails(item) },
+                        modifier = Modifier.fillParentMaxWidth(0.72f),
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -210,7 +275,7 @@ private fun FullscreenLoading() {
         ) {
             CircularProgressIndicator()
             Text(
-                text = "Loading trending titles...",
+                text = "Loading Home...",
                 style = MaterialTheme.typography.bodyLarge,
             )
         }

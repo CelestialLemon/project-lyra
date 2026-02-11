@@ -133,6 +133,7 @@ class DetailsViewModel(
             overview = overview,
             posterPath = posterPath,
             releaseOrAirDate = releaseOrAirDate,
+            genreIds = genreIds,
         )
     }
 }

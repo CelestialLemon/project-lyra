@@ -38,6 +38,7 @@ internal object BackupRestorePlanFactory {
                 overview = media.overview,
                 posterPath = media.posterPath,
                 releaseOrAirDate = media.releaseOrAirDate,
+                genreIdsCsv = media.genreIdsCsv,
                 metadataUpdatedAt = media.metadataUpdatedAt,
             )
         }

@@ -21,7 +21,7 @@ class LyraDatabaseMigrationIntegrationTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
     @Test
-    fun migration1To3_preservesTrackedDataAndCreatesNewTables() {
+    fun migration1To4_preservesTrackedDataAndCreatesNewTables() {
         runBlocking {
             val name = "migration-v1-${UUID.randomUUID()}.db"
             context.deleteDatabase(name)
@@ -49,6 +49,8 @@ class LyraDatabaseMigrationIntegrationTest {
             assertEquals(1, migrated.userEntryDao().getAllUserEntries().size)
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "trending_cache"))
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "episode_reminder_state"))
+            assertTrue(tableExists(migrated.openHelper.writableDatabase, "genre_metadata"))
+            assertTrue(columnExists(migrated.openHelper.writableDatabase, "media_items", "genre_ids"))
     
             migrated.close()
             context.deleteDatabase(name)
@@ -56,7 +58,7 @@ class LyraDatabaseMigrationIntegrationTest {
     }
 
     @Test
-    fun migration2To3_preservesTrendingCacheRows() {
+    fun migration2To4_preservesTrendingCacheRows() {
         runBlocking {
             val name = "migration-v2-${UUID.randomUUID()}.db"
             context.deleteDatabase(name)
@@ -85,7 +87,37 @@ class LyraDatabaseMigrationIntegrationTest {
             assertEquals(202, cached.first().tmdbId)
             assertEquals(99L, migrated.trendingCacheDao().latestCachedAt())
             assertTrue(tableExists(migrated.openHelper.writableDatabase, "episode_reminder_state"))
+            assertTrue(tableExists(migrated.openHelper.writableDatabase, "genre_metadata"))
+            assertTrue(columnExists(migrated.openHelper.writableDatabase, "media_items", "genre_ids"))
     
+            migrated.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
+    fun migration3To4_preservesMediaAndAddsGenreSchema() {
+        runBlocking {
+            val name = "migration-v3-${UUID.randomUUID()}.db"
+            context.deleteDatabase(name)
+            createLegacyDatabase(name = name, version = 3) { db ->
+                db.execSQL(
+                    """
+                    INSERT INTO media_items (tmdb_id, media_type, title, overview, poster_path, release_or_air_date, metadata_updated_at)
+                    VALUES (303, 'TV', 'Legacy TV', 'Overview', '/legacy-tv.jpg', '2022-02-02', 40)
+                    """.trimIndent()
+                )
+            }
+
+            val migrated = Room.databaseBuilder(context, LyraDatabase::class.java, name)
+                .addMigrations(*LyraDatabaseMigrations.ALL)
+                .allowMainThreadQueries()
+                .build()
+
+            assertEquals(1, migrated.mediaDao().mediaCount())
+            assertTrue(columnExists(migrated.openHelper.writableDatabase, "media_items", "genre_ids"))
+            assertTrue(tableExists(migrated.openHelper.writableDatabase, "genre_metadata"))
+
             migrated.close()
             context.deleteDatabase(name)
         }
@@ -101,6 +133,9 @@ class LyraDatabaseMigrationIntegrationTest {
                 createVersion1Schema(db)
                 if (version >= 2) {
                     createVersion2Schema(db)
+                }
+                if (version >= 3) {
+                    createVersion3Schema(db)
                 }
             }
 
@@ -175,9 +210,39 @@ class LyraDatabaseMigrationIntegrationTest {
         )
     }
 
+    private fun createVersion3Schema(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `episode_reminder_state` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `media_item_id` INTEGER NOT NULL,
+                `last_checked_at` INTEGER NOT NULL,
+                `last_known_episode_count` INTEGER,
+                `last_known_season_count` INTEGER,
+                FOREIGN KEY(`media_item_id`) REFERENCES `media_items`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_episode_reminder_state_media_item_id` ON `episode_reminder_state` (`media_item_id`)"
+        )
+    }
+
     private fun tableExists(db: SupportSQLiteDatabase, table: String): Boolean {
         db.query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", arrayOf(table)).use { cursor ->
             return cursor.moveToFirst()
         }
+    }
+
+    private fun columnExists(db: SupportSQLiteDatabase, table: String, column: String): Boolean {
+        db.query("PRAGMA table_info(`$table`)").use { cursor ->
+            val nameIndex = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                if (nameIndex >= 0 && cursor.getString(nameIndex) == column) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 }

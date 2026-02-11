@@ -45,6 +45,27 @@ interface UserEntryDao {
     @Query(
         """
         SELECT
+            m.id AS local_id,
+            m.tmdb_id AS tmdb_id,
+            m.media_type AS media_type,
+            m.title,
+            m.overview,
+            m.poster_path AS poster_path,
+            m.release_or_air_date AS release_or_air_date,
+            u.status,
+            u.updated_at AS updated_at
+        FROM user_entries u
+        INNER JOIN media_items m ON m.id = u.media_item_id
+        WHERE u.status = :status
+        ORDER BY u.updated_at DESC
+        LIMIT 1
+        """
+    )
+    suspend fun getLatestItemByStatus(status: String): UserListRow?
+
+    @Query(
+        """
+        SELECT
             m.tmdb_id AS tmdb_id,
             m.media_type AS media_type,
             u.status
@@ -53,6 +74,29 @@ interface UserEntryDao {
         """
     )
     fun observeTrackedStatuses(): Flow<List<UserStatusRow>>
+
+    @Query(
+        """
+        SELECT
+            m.tmdb_id AS tmdb_id,
+            m.media_type AS media_type
+        FROM user_entries u
+        INNER JOIN media_items m ON m.id = u.media_item_id
+        """
+    )
+    suspend fun getTrackedMediaKeys(): List<TrackedMediaKeyRow>
+
+    @Query(
+        """
+        SELECT
+            m.genre_ids
+        FROM user_entries u
+        INNER JOIN media_items m ON m.id = u.media_item_id
+        WHERE u.status = :status
+          AND m.media_type = :mediaType
+        """
+    )
+    suspend fun getMediaGenresByStatus(status: String, mediaType: String): List<CompletedMediaGenreRow>
 
     @Query(
         """

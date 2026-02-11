@@ -31,6 +31,38 @@ interface TmdbApiService {
         @Path("tv_id") tvId: Int,
         @Query("api_key") apiKey: String,
     ): TmdbTvDetailsDto
+
+    @GET("discover/movie")
+    suspend fun discoverMovies(
+        @Query("api_key") apiKey: String,
+        @Query("with_genres") withGenres: String,
+        @Query("include_adult") includeAdult: Boolean = false,
+        @Query("language") language: String = "en-US",
+        @Query("sort_by") sortBy: String = "popularity.desc",
+        @Query("page") page: Int = 1,
+    ): TmdbDiscoverMovieResponse
+
+    @GET("discover/tv")
+    suspend fun discoverTvShows(
+        @Query("api_key") apiKey: String,
+        @Query("with_genres") withGenres: String,
+        @Query("include_adult") includeAdult: Boolean = false,
+        @Query("language") language: String = "en-US",
+        @Query("sort_by") sortBy: String = "popularity.desc",
+        @Query("page") page: Int = 1,
+    ): TmdbDiscoverTvResponse
+
+    @GET("genre/movie/list")
+    suspend fun getMovieGenres(
+        @Query("api_key") apiKey: String,
+        @Query("language") language: String = "en-US",
+    ): TmdbGenreListResponse
+
+    @GET("genre/tv/list")
+    suspend fun getTvGenres(
+        @Query("api_key") apiKey: String,
+        @Query("language") language: String = "en-US",
+    ): TmdbGenreListResponse
 }
 
 data class TmdbTrendingResponse(
@@ -54,6 +86,8 @@ data class TmdbTrendingItemDto(
     val releaseDate: String?,
     @Json(name = "first_air_date")
     val firstAirDate: String?,
+    @Json(name = "genre_ids")
+    val genreIds: List<Int>? = null,
 )
 
 data class TmdbMultiSearchItemDto(
@@ -69,11 +103,49 @@ data class TmdbMultiSearchItemDto(
     val releaseDate: String?,
     @Json(name = "first_air_date")
     val firstAirDate: String?,
+    @Json(name = "genre_ids")
+    val genreIds: List<Int>? = null,
 )
 
 data class TmdbGenreDto(
     val id: Int,
     val name: String?,
+)
+
+data class TmdbGenreListResponse(
+    val genres: List<TmdbGenreDto> = emptyList(),
+)
+
+data class TmdbDiscoverMovieResponse(
+    val results: List<TmdbDiscoverMovieDto> = emptyList(),
+)
+
+data class TmdbDiscoverMovieDto(
+    val id: Int,
+    val title: String?,
+    val overview: String?,
+    @Json(name = "poster_path")
+    val posterPath: String?,
+    @Json(name = "release_date")
+    val releaseDate: String?,
+    @Json(name = "genre_ids")
+    val genreIds: List<Int>? = null,
+)
+
+data class TmdbDiscoverTvResponse(
+    val results: List<TmdbDiscoverTvDto> = emptyList(),
+)
+
+data class TmdbDiscoverTvDto(
+    val id: Int,
+    val name: String?,
+    val overview: String?,
+    @Json(name = "poster_path")
+    val posterPath: String?,
+    @Json(name = "first_air_date")
+    val firstAirDate: String?,
+    @Json(name = "genre_ids")
+    val genreIds: List<Int>? = null,
 )
 
 data class TmdbMovieDetailsDto(

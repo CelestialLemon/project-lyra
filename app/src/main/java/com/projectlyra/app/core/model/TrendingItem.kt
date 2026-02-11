@@ -7,4 +7,5 @@ data class TrendingItem(
     val overview: String,
     val posterPath: String,
     val releaseOrAirDate: String,
+    val genreIds: List<Int> = emptyList(),
 )

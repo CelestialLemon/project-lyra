@@ -58,6 +58,7 @@ class BackupService(
                     overview = media.overview,
                     posterPath = media.posterPath,
                     releaseOrAirDate = media.releaseOrAirDate,
+                    genreIdsCsv = media.genreIdsCsv,
                     metadataUpdatedAt = media.metadataUpdatedAt,
                 )
             }.toList()
@@ -157,9 +158,11 @@ class BackupService(
         val userEntryDao = database.userEntryDao()
         val episodeReminderStateDao = database.episodeReminderStateDao()
         val trendingCacheDao = database.trendingCacheDao()
+        val genreMetadataDao = database.genreMetadataDao()
 
         database.withTransaction {
             trendingCacheDao.clearAll()
+            genreMetadataDao.clearAll()
             episodeReminderStateDao.clearAll()
             userEntryDao.clearAll()
             mediaDao.clearAll()
@@ -174,6 +177,7 @@ class BackupService(
                         overview = media.overview,
                         posterPath = media.posterPath,
                         releaseOrAirDate = media.releaseOrAirDate,
+                        genreIdsCsv = media.genreIdsCsv,
                         metadataUpdatedAt = media.metadataUpdatedAt,
                     )
                 )

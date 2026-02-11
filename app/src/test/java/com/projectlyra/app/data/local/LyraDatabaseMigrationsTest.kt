@@ -32,12 +32,26 @@ class LyraDatabaseMigrationsTest {
     }
 
     @Test
+    fun migration3To4_addsGenreSupportSchema() {
+        val executedSql = mutableListOf<String>()
+        val db = recordingDatabase(executedSql)
+
+        LyraDatabaseMigrations.MIGRATION_3_4.migrate(db)
+
+        assertTrue(executedSql.any { it.contains("ALTER TABLE `media_items` ADD COLUMN `genre_ids`") })
+        assertTrue(executedSql.any { it.contains("CREATE TABLE IF NOT EXISTS `genre_metadata`") })
+        assertTrue(executedSql.any { it.contains("index_genre_metadata_genre_id_media_type") })
+    }
+
+    @Test
     fun allMigrations_areOrderedSequentially() {
-        assertEquals(2, LyraDatabaseMigrations.ALL.size)
+        assertEquals(3, LyraDatabaseMigrations.ALL.size)
         assertEquals(1, LyraDatabaseMigrations.ALL[0].startVersion)
         assertEquals(2, LyraDatabaseMigrations.ALL[0].endVersion)
         assertEquals(2, LyraDatabaseMigrations.ALL[1].startVersion)
         assertEquals(3, LyraDatabaseMigrations.ALL[1].endVersion)
+        assertEquals(3, LyraDatabaseMigrations.ALL[2].startVersion)
+        assertEquals(4, LyraDatabaseMigrations.ALL[2].endVersion)
     }
 
     private fun recordingDatabase(executedSql: MutableList<String>): SupportSQLiteDatabase {

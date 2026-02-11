@@ -31,6 +31,7 @@ data class LyraBackupMediaItem(
     val overview: String,
     val posterPath: String,
     val releaseOrAirDate: String,
+    val genreIdsCsv: String = "",
     val metadataUpdatedAt: Long,
 )
 

@@ -6,6 +6,8 @@ import com.projectlyra.app.core.model.SeasonSummary
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.data.local.CachedTrendingRow
 import com.projectlyra.app.data.local.MediaItemEntity
+import com.projectlyra.app.data.remote.TmdbDiscoverMovieDto
+import com.projectlyra.app.data.remote.TmdbDiscoverTvDto
 import com.projectlyra.app.data.remote.TmdbMovieDetailsDto
 import com.projectlyra.app.data.remote.TmdbMultiSearchItemDto
 import com.projectlyra.app.data.remote.TmdbTrendingItemDto
@@ -20,6 +22,7 @@ internal fun CachedTrendingRow.toDomainOrNull(): TrendingItem? {
         overview = overview,
         posterPath = posterPath,
         releaseOrAirDate = releaseOrAirDate,
+        genreIds = emptyList(),
     )
 }
 
@@ -53,6 +56,7 @@ internal fun TmdbTrendingItemDto.toDomainOrNull(): TrendingItem? {
         overview = overview.orEmpty(),
         posterPath = mappedPosterPath,
         releaseOrAirDate = mappedDate,
+        genreIds = genreIds.orEmpty().filter { it > 0 }.distinct(),
     )
 }
 
@@ -85,6 +89,43 @@ internal fun TmdbMultiSearchItemDto.toDomainOrNull(): TrendingItem? {
         overview = overview.orEmpty(),
         posterPath = mappedPosterPath,
         releaseOrAirDate = mappedDate,
+        genreIds = genreIds.orEmpty().filter { it > 0 }.distinct(),
+    )
+}
+
+internal fun TmdbDiscoverMovieDto.toDomainOrNull(): TrendingItem? {
+    val mappedTitle = title.orEmpty().trim()
+    val mappedPosterPath = posterPath.orEmpty().trim()
+    if (mappedTitle.isEmpty() || mappedPosterPath.isEmpty()) {
+        return null
+    }
+
+    return TrendingItem(
+        tmdbId = id,
+        mediaType = MediaType.MOVIE,
+        title = mappedTitle,
+        overview = overview.orEmpty(),
+        posterPath = mappedPosterPath,
+        releaseOrAirDate = releaseDate.orEmpty(),
+        genreIds = genreIds.orEmpty().filter { it > 0 }.distinct(),
+    )
+}
+
+internal fun TmdbDiscoverTvDto.toDomainOrNull(): TrendingItem? {
+    val mappedTitle = name.orEmpty().trim()
+    val mappedPosterPath = posterPath.orEmpty().trim()
+    if (mappedTitle.isEmpty() || mappedPosterPath.isEmpty()) {
+        return null
+    }
+
+    return TrendingItem(
+        tmdbId = id,
+        mediaType = MediaType.TV,
+        title = mappedTitle,
+        overview = overview.orEmpty(),
+        posterPath = mappedPosterPath,
+        releaseOrAirDate = firstAirDate.orEmpty(),
+        genreIds = genreIds.orEmpty().filter { it > 0 }.distinct(),
     )
 }
 
@@ -104,6 +145,7 @@ internal fun TmdbMovieDetailsDto.toDomainOrNull(): MediaDetails? {
         backdropPath = backdropPath?.trim()?.takeIf { it.isNotEmpty() },
         releaseOrAirDate = releaseDate.orEmpty(),
         genres = genres.orEmpty().mapNotNull { dto -> dto.name?.trim()?.takeIf { it.isNotEmpty() } },
+        genreIds = genres.orEmpty().map { it.id }.filter { it > 0 }.distinct(),
         runtimeMinutes = runtime?.takeIf { it > 0 },
     )
 }
@@ -138,6 +180,7 @@ internal fun TmdbTvDetailsDto.toDomainOrNull(): MediaDetails? {
         backdropPath = backdropPath?.trim()?.takeIf { it.isNotEmpty() },
         releaseOrAirDate = firstAirDate.orEmpty(),
         genres = genres.orEmpty().mapNotNull { dto -> dto.name?.trim()?.takeIf { it.isNotEmpty() } },
+        genreIds = genres.orEmpty().map { it.id }.filter { it > 0 }.distinct(),
         numberOfSeasons = numberOfSeasons?.takeIf { it >= 0 } ?: mappedSeasons.size,
         numberOfEpisodes = numberOfEpisodes?.takeIf { it >= 0 },
         seasons = mappedSeasons,
@@ -153,6 +196,7 @@ internal fun MediaItemEntity.toDetailsFallback(mediaType: MediaType): MediaDetai
         posterPath = posterPath,
         backdropPath = null,
         releaseOrAirDate = releaseOrAirDate,
+        genreIds = parseGenreIdsCsv(genreIdsCsv),
     )
 }
 
@@ -164,5 +208,20 @@ internal fun MediaDetails.asTrendingItem(): TrendingItem {
         overview = overview,
         posterPath = posterPath,
         releaseOrAirDate = releaseOrAirDate,
+        genreIds = genreIds,
     )
+}
+
+internal fun List<Int>.toGenreIdsCsv(): String {
+    return this.filter { it > 0 }.distinct().joinToString(",")
+}
+
+internal fun parseGenreIdsCsv(raw: String): List<Int> {
+    if (raw.isBlank()) {
+        return emptyList()
+    }
+    return raw.split(",")
+        .mapNotNull { token -> token.trim().toIntOrNull() }
+        .filter { id -> id > 0 }
+        .distinct()
 }

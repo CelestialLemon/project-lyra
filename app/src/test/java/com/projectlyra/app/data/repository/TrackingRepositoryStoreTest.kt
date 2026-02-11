@@ -1,17 +1,20 @@
 package com.projectlyra.app.data.repository
 
 import com.projectlyra.app.core.model.MediaType
+import com.projectlyra.app.core.model.TrackedItem
 import com.projectlyra.app.core.model.TrendingItem
 import com.projectlyra.app.core.model.WatchStatus
+import com.projectlyra.app.data.local.CompletedMediaGenreRow
 import com.projectlyra.app.data.local.EpisodeReminderStateDao
 import com.projectlyra.app.data.local.EpisodeReminderStateEntity
 import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.MediaItemEntity
+import com.projectlyra.app.data.local.TrackedMediaKeyRow
+import com.projectlyra.app.data.local.TvReminderCandidateRow
 import com.projectlyra.app.data.local.UserEntryDao
 import com.projectlyra.app.data.local.UserEntryEntity
 import com.projectlyra.app.data.local.UserListRow
 import com.projectlyra.app.data.local.UserStatusRow
-import com.projectlyra.app.data.local.TvReminderCandidateRow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -41,6 +44,81 @@ class TrackingRepositoryStoreTest {
         assertEquals(1, items.size)
         assertEquals(101, items.first().tmdbId)
         assertEquals(WatchStatus.WATCHING, items.first().status)
+    }
+
+    @Test
+    fun getResumeCandidate_prefersWatchingOverOnHold() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val userEntryDao = FakeUserEntryDao(mediaDao)
+        val reminderDao = FakeEpisodeReminderStateDao()
+        var now = 100L
+        val store = TrackingRepositoryStore(
+            mediaDao = mediaDao,
+            userEntryDao = userEntryDao,
+            episodeReminderStateDao = reminderDao,
+            nowProvider = { now },
+        )
+
+        store.upsertTrackedStatus(sampleItem(tmdbId = 1, title = "On Hold Show"), WatchStatus.ON_HOLD)
+        now = 200L
+        store.upsertTrackedStatus(sampleItem(tmdbId = 2, title = "Watching Show"), WatchStatus.WATCHING)
+
+        val candidate = store.getResumeCandidate()
+
+        assertEquals(2, candidate?.tmdbId)
+        assertEquals(WatchStatus.WATCHING, candidate?.status)
+    }
+
+    @Test
+    fun getResumeCandidate_fallsBackToOnHoldWhenWatchingMissing() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val userEntryDao = FakeUserEntryDao(mediaDao)
+        val reminderDao = FakeEpisodeReminderStateDao()
+        val store = TrackingRepositoryStore(
+            mediaDao = mediaDao,
+            userEntryDao = userEntryDao,
+            episodeReminderStateDao = reminderDao,
+            nowProvider = { 100L },
+        )
+
+        store.upsertTrackedStatus(sampleItem(tmdbId = 44, title = "On Hold Candidate"), WatchStatus.ON_HOLD)
+
+        val candidate = store.getResumeCandidate()
+
+        assertEquals(44, candidate?.tmdbId)
+        assertEquals(WatchStatus.ON_HOLD, candidate?.status)
+    }
+
+    @Test
+    fun getTopCompletedGenreIds_returnsTopThreeByFrequencyPerMediaType() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val userEntryDao = FakeUserEntryDao(mediaDao)
+        val reminderDao = FakeEpisodeReminderStateDao()
+        val store = TrackingRepositoryStore(
+            mediaDao = mediaDao,
+            userEntryDao = userEntryDao,
+            episodeReminderStateDao = reminderDao,
+            nowProvider = { 100L },
+        )
+
+        store.upsertTrackedStatus(
+            sampleItem(tmdbId = 1001, mediaType = MediaType.MOVIE, title = "A", genreIds = listOf(18, 28)),
+            WatchStatus.COMPLETED,
+        )
+        store.upsertTrackedStatus(
+            sampleItem(tmdbId = 1002, mediaType = MediaType.MOVIE, title = "B", genreIds = listOf(18, 35)),
+            WatchStatus.COMPLETED,
+        )
+        store.upsertTrackedStatus(
+            sampleItem(tmdbId = 1003, mediaType = MediaType.TV, title = "C", genreIds = listOf(18, 35, 12)),
+            WatchStatus.COMPLETED,
+        )
+
+        val movieGenres = store.getTopCompletedGenreIds(mediaType = MediaType.MOVIE, limit = 3)
+        val tvGenres = store.getTopCompletedGenreIds(mediaType = MediaType.TV, limit = 3)
+
+        assertEquals(listOf(18, 28, 35), movieGenres)
+        assertEquals(listOf(12, 18, 35), tvGenres)
     }
 
     @Test
@@ -186,6 +264,7 @@ class TrackingRepositoryStoreTest {
         tmdbId: Int,
         title: String = "Sample",
         mediaType: MediaType = MediaType.TV,
+        genreIds: List<Int> = emptyList(),
     ): TrendingItem {
         return TrendingItem(
             tmdbId = tmdbId,
@@ -194,6 +273,7 @@ class TrackingRepositoryStoreTest {
             overview = "Overview",
             posterPath = "/poster.jpg",
             releaseOrAirDate = "2024-01-01",
+            genreIds = genreIds,
         )
     }
 
@@ -275,22 +355,17 @@ class TrackingRepositoryStoreTest {
             return mutationTick.map {
                 entriesByMediaId.values
                     .filter { entry -> entry.status == status }
-                    .mapNotNull { entry ->
-                        val media = mediaDao.byId(entry.mediaItemId) ?: return@mapNotNull null
-                        UserListRow(
-                            localId = media.id,
-                            tmdbId = media.tmdbId,
-                            mediaType = media.mediaType,
-                            title = media.title,
-                            overview = media.overview,
-                            posterPath = media.posterPath,
-                            releaseOrAirDate = media.releaseOrAirDate,
-                            status = entry.status,
-                            updatedAt = entry.updatedAt,
-                        )
-                    }
+                    .mapNotNull { entry -> entry.toUserListRow(mediaDao) }
                     .sortedByDescending { row -> row.updatedAt }
             }
+        }
+
+        override suspend fun getLatestItemByStatus(status: String): UserListRow? {
+            return entriesByMediaId.values
+                .filter { entry -> entry.status == status }
+                .sortedByDescending { entry -> entry.updatedAt }
+                .firstOrNull()
+                ?.toUserListRow(mediaDao)
         }
 
         override fun observeTrackedStatuses(): Flow<List<UserStatusRow>> {
@@ -306,6 +381,31 @@ class TrackingRepositoryStoreTest {
             }
         }
 
+        override suspend fun getTrackedMediaKeys(): List<TrackedMediaKeyRow> {
+            return entriesByMediaId.values.mapNotNull { entry ->
+                val media = mediaDao.byId(entry.mediaItemId) ?: return@mapNotNull null
+                TrackedMediaKeyRow(
+                    tmdbId = media.tmdbId,
+                    mediaType = media.mediaType,
+                )
+            }
+        }
+
+        override suspend fun getMediaGenresByStatus(status: String, mediaType: String): List<CompletedMediaGenreRow> {
+            return entriesByMediaId.values
+                .filter { entry ->
+                    if (entry.status != status) {
+                        return@filter false
+                    }
+                    val media = mediaDao.byId(entry.mediaItemId) ?: return@filter false
+                    media.mediaType == mediaType
+                }
+                .mapNotNull { entry ->
+                    val media = mediaDao.byId(entry.mediaItemId) ?: return@mapNotNull null
+                    CompletedMediaGenreRow(genreIdsCsv = media.genreIdsCsv)
+                }
+        }
+
         override suspend fun getTvReminderCandidates(statuses: List<String>): List<TvReminderCandidateRow> {
             return entriesByMediaId.values.mapNotNull { entry ->
                 val media = mediaDao.byId(entry.mediaItemId) ?: return@mapNotNull null
@@ -319,6 +419,21 @@ class TrackingRepositoryStoreTest {
                     status = entry.status,
                 )
             }
+        }
+
+        private fun UserEntryEntity.toUserListRow(mediaDao: FakeMediaDao): UserListRow? {
+            val media = mediaDao.byId(mediaItemId) ?: return null
+            return UserListRow(
+                localId = media.id,
+                tmdbId = media.tmdbId,
+                mediaType = media.mediaType,
+                title = media.title,
+                overview = media.overview,
+                posterPath = media.posterPath,
+                releaseOrAirDate = media.releaseOrAirDate,
+                status = status,
+                updatedAt = updatedAt,
+            )
         }
     }
 

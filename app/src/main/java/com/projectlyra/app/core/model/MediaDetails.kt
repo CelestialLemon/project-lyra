@@ -9,6 +9,7 @@ data class MediaDetails(
     val backdropPath: String?,
     val releaseOrAirDate: String,
     val genres: List<String> = emptyList(),
+    val genreIds: List<Int> = emptyList(),
     val runtimeMinutes: Int? = null,
     val numberOfSeasons: Int? = null,
     val numberOfEpisodes: Int? = null,

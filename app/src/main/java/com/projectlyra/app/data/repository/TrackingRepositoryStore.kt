@@ -21,19 +21,7 @@ internal class TrackingRepositoryStore(
 ) {
     fun observeByStatus(status: WatchStatus): Flow<List<TrackedItem>> {
         return userEntryDao.observeItemsByStatus(status.name).map { rows ->
-            rows.map { row ->
-                TrackedItem(
-                    localId = row.localId,
-                    tmdbId = row.tmdbId,
-                    mediaType = MediaType.valueOf(row.mediaType),
-                    title = row.title,
-                    overview = row.overview,
-                    posterPath = row.posterPath,
-                    releaseOrAirDate = row.releaseOrAirDate,
-                    status = WatchStatus.valueOf(row.status),
-                    updatedAt = row.updatedAt,
-                )
-            }
+            rows.mapNotNull { row -> row.toTrackedItemOrNull() }
         }
     }
 
@@ -89,6 +77,43 @@ internal class TrackingRepositoryStore(
                     status = mappedStatus,
                 )
             }
+    }
+
+    suspend fun getResumeCandidate(): TrackedItem? {
+        val watching = userEntryDao.getLatestItemByStatus(WatchStatus.WATCHING.name)?.toTrackedItemOrNull()
+        if (watching != null) {
+            return watching
+        }
+        return userEntryDao.getLatestItemByStatus(WatchStatus.ON_HOLD.name)?.toTrackedItemOrNull()
+    }
+
+    suspend fun getTopCompletedGenreIds(mediaType: MediaType, limit: Int): List<Int> {
+        if (limit <= 0) {
+            return emptyList()
+        }
+        val counts = linkedMapOf<Int, Int>()
+        userEntryDao.getMediaGenresByStatus(
+            status = WatchStatus.COMPLETED.name,
+            mediaType = mediaType.name,
+        ).forEach { row ->
+            parseGenreIdsCsv(row.genreIdsCsv).distinct().forEach { genreId ->
+                counts[genreId] = (counts[genreId] ?: 0) + 1
+            }
+        }
+        return counts.entries
+            .sortedWith(compareByDescending<Map.Entry<Int, Int>> { it.value }.thenBy { it.key })
+            .take(limit)
+            .map { entry -> entry.key }
+    }
+
+    suspend fun getTrackedMediaKeys(): Set<String> {
+        return userEntryDao.getTrackedMediaKeys()
+            .mapNotNull { row ->
+                val mappedMediaType = runCatching { MediaType.valueOf(row.mediaType) }.getOrNull()
+                    ?: return@mapNotNull null
+                statusKey(tmdbId = row.tmdbId, mediaType = mappedMediaType)
+            }
+            .toSet()
     }
 
     suspend fun getEpisodeReminderState(mediaItemId: Long): EpisodeReminderStateSnapshot? {
@@ -224,6 +249,8 @@ internal class TrackingRepositoryStore(
                 overview = item.overview,
                 posterPath = item.posterPath,
                 releaseOrAirDate = item.releaseOrAirDate,
+                genreIdsCsv = item.genreIds.takeIf { it.isNotEmpty() }?.toGenreIdsCsv()
+                    ?: existing?.genreIdsCsv.orEmpty(),
                 metadataUpdatedAt = metadataUpdatedAt,
             )
         )
@@ -249,6 +276,22 @@ internal class TrackingRepositoryStore(
                 addedAt = existingEntry?.addedAt ?: updatedAt,
                 updatedAt = updatedAt,
             )
+        )
+    }
+
+    private fun com.projectlyra.app.data.local.UserListRow.toTrackedItemOrNull(): TrackedItem? {
+        val mappedType = runCatching { MediaType.valueOf(mediaType) }.getOrNull() ?: return null
+        val mappedStatus = runCatching { WatchStatus.valueOf(status) }.getOrNull() ?: return null
+        return TrackedItem(
+            localId = localId,
+            tmdbId = tmdbId,
+            mediaType = mappedType,
+            title = title,
+            overview = overview,
+            posterPath = posterPath,
+            releaseOrAirDate = releaseOrAirDate,
+            status = mappedStatus,
+            updatedAt = updatedAt,
         )
     }
 }

@@ -2,14 +2,19 @@ package com.projectlyra.app.data.repository
 
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.data.local.CachedTrendingRow
+import com.projectlyra.app.data.local.GenreMetadataDao
+import com.projectlyra.app.data.local.GenreMetadataEntity
 import com.projectlyra.app.data.local.MediaDao
 import com.projectlyra.app.data.local.MediaItemEntity
 import com.projectlyra.app.data.local.TrendingCacheDao
 import com.projectlyra.app.data.local.TrendingCacheEntity
 import com.projectlyra.app.data.remote.TmdbApiService
+import com.projectlyra.app.data.remote.TmdbDiscoverMovieDto
+import com.projectlyra.app.data.remote.TmdbDiscoverMovieResponse
+import com.projectlyra.app.data.remote.TmdbDiscoverTvResponse
 import com.projectlyra.app.data.remote.TmdbGenreDto
+import com.projectlyra.app.data.remote.TmdbGenreListResponse
 import com.projectlyra.app.data.remote.TmdbMovieDetailsDto
-import com.projectlyra.app.data.remote.TmdbMultiSearchItemDto
 import com.projectlyra.app.data.remote.TmdbMultiSearchResponse
 import com.projectlyra.app.data.remote.TmdbSeasonDto
 import com.projectlyra.app.data.remote.TmdbTrendingItemDto
@@ -27,10 +32,12 @@ class DiscoveryRepositoryStoreTest {
     fun refreshTrending_returnsMissingApiKeyWithCachedItems() = runBlocking {
         val mediaDao = FakeMediaDao()
         val trendingCacheDao = FakeTrendingCacheDao(mediaDao)
+        val genreMetadataDao = FakeGenreMetadataDao()
         val api = FakeTmdbApiService()
         val store = DiscoveryRepositoryStore(
             mediaDao = mediaDao,
             trendingCacheDao = trendingCacheDao,
+            genreMetadataDao = genreMetadataDao,
             tmdbApiService = api,
             nowProvider = { 1_000L },
         )
@@ -68,6 +75,7 @@ class DiscoveryRepositoryStoreTest {
     fun refreshTrending_fetchesAndCachesRemoteResults() = runBlocking {
         val mediaDao = FakeMediaDao()
         val trendingCacheDao = FakeTrendingCacheDao(mediaDao)
+        val genreMetadataDao = FakeGenreMetadataDao()
         val api = FakeTmdbApiService().apply {
             trendingHandler = {
                 TmdbTrendingResponse(
@@ -100,6 +108,7 @@ class DiscoveryRepositoryStoreTest {
         val store = DiscoveryRepositoryStore(
             mediaDao = mediaDao,
             trendingCacheDao = trendingCacheDao,
+            genreMetadataDao = genreMetadataDao,
             tmdbApiService = api,
             nowProvider = { 2_000L },
         )
@@ -118,12 +127,14 @@ class DiscoveryRepositoryStoreTest {
     fun searchTitles_mapsNetworkErrorsToUserMessage() = runBlocking {
         val mediaDao = FakeMediaDao()
         val trendingCacheDao = FakeTrendingCacheDao(mediaDao)
+        val genreMetadataDao = FakeGenreMetadataDao()
         val api = FakeTmdbApiService().apply {
             searchHandler = { _, _ -> throw UnknownHostException("offline") }
         }
         val store = DiscoveryRepositoryStore(
             mediaDao = mediaDao,
             trendingCacheDao = trendingCacheDao,
+            genreMetadataDao = genreMetadataDao,
             tmdbApiService = api,
             nowProvider = { 3_000L },
         )
@@ -139,10 +150,12 @@ class DiscoveryRepositoryStoreTest {
     fun getMediaDetails_returnsFallbackWhenApiKeyMissing() = runBlocking {
         val mediaDao = FakeMediaDao()
         val trendingCacheDao = FakeTrendingCacheDao(mediaDao)
+        val genreMetadataDao = FakeGenreMetadataDao()
         val api = FakeTmdbApiService()
         val store = DiscoveryRepositoryStore(
             mediaDao = mediaDao,
             trendingCacheDao = trendingCacheDao,
+            genreMetadataDao = genreMetadataDao,
             tmdbApiService = api,
             nowProvider = { 4_000L },
         )
@@ -169,6 +182,147 @@ class DiscoveryRepositoryStoreTest {
         val fallback = (result as MediaDetailsResult.MissingApiKey).localFallback
         assertNotNull(fallback)
         assertEquals("Saved Title", fallback?.title)
+    }
+
+    @Test
+    fun getMovieRecommendations_filtersTrackedItems() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val trendingCacheDao = FakeTrendingCacheDao(mediaDao)
+        val genreMetadataDao = FakeGenreMetadataDao()
+        val api = FakeTmdbApiService().apply {
+            discoverMovieHandler = { _, _ ->
+                TmdbDiscoverMovieResponse(
+                    results = listOf(
+                        TmdbDiscoverMovieDto(
+                            id = 10,
+                            title = "Tracked",
+                            overview = "",
+                            posterPath = "/tracked.jpg",
+                            releaseDate = "2022-01-01",
+                            genreIds = listOf(18),
+                        ),
+                        TmdbDiscoverMovieDto(
+                            id = 11,
+                            title = "Fresh",
+                            overview = "",
+                            posterPath = "/fresh.jpg",
+                            releaseDate = "2023-01-01",
+                            genreIds = listOf(18),
+                        ),
+                    )
+                )
+            }
+        }
+
+        val store = DiscoveryRepositoryStore(
+            mediaDao = mediaDao,
+            trendingCacheDao = trendingCacheDao,
+            genreMetadataDao = genreMetadataDao,
+            tmdbApiService = api,
+            nowProvider = { 5_000L },
+        )
+
+        val result = store.getMovieRecommendations(
+            apiKey = "key",
+            request = MovieRecommendationRequest(genreIds = listOf(18, 12, 35)),
+            trackedMediaKeys = setOf("MOVIE:10"),
+        )
+
+        assertTrue(result is RecommendationResult.Success)
+        val success = result as RecommendationResult.Success
+        assertTrue(success.isPersonalized)
+        assertEquals(1, success.items.size)
+        assertEquals(11, success.items.first().tmdbId)
+    }
+
+    @Test
+    fun getMovieRecommendations_whenProfileMissing_usesFallback() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val trendingCacheDao = FakeTrendingCacheDao(mediaDao)
+        val genreMetadataDao = FakeGenreMetadataDao()
+        val api = FakeTmdbApiService().apply {
+            trendingHandler = {
+                TmdbTrendingResponse(
+                    results = listOf(
+                        TmdbTrendingItemDto(
+                            id = 12,
+                            mediaType = "movie",
+                            title = "Fallback Movie",
+                            name = null,
+                            overview = "",
+                            posterPath = "/fallback.jpg",
+                            releaseDate = "2020-01-01",
+                            firstAirDate = null,
+                        )
+                    )
+                )
+            }
+        }
+
+        val store = DiscoveryRepositoryStore(
+            mediaDao = mediaDao,
+            trendingCacheDao = trendingCacheDao,
+            genreMetadataDao = genreMetadataDao,
+            tmdbApiService = api,
+            nowProvider = { 6_000L },
+        )
+
+        val result = store.getMovieRecommendations(
+            apiKey = "key",
+            request = MovieRecommendationRequest(genreIds = emptyList()),
+            trackedMediaKeys = emptySet(),
+        )
+
+        assertTrue(result is RecommendationResult.Success)
+        val success = result as RecommendationResult.Success
+        assertTrue(!success.isPersonalized)
+        assertTrue(success.usedFallback)
+        assertEquals(12, success.items.first().tmdbId)
+    }
+
+    @Test
+    fun getMovieRecommendations_onApiFailure_returnsFallbackWithErrorContract() = runBlocking {
+        val mediaDao = FakeMediaDao()
+        val trendingCacheDao = FakeTrendingCacheDao(mediaDao)
+        val genreMetadataDao = FakeGenreMetadataDao()
+        val api = FakeTmdbApiService().apply {
+            trendingHandler = {
+                TmdbTrendingResponse(
+                    results = listOf(
+                        TmdbTrendingItemDto(
+                            id = 13,
+                            mediaType = "movie",
+                            title = "Fallback Movie",
+                            name = null,
+                            overview = "",
+                            posterPath = "/fallback.jpg",
+                            releaseDate = "2020-01-01",
+                            firstAirDate = null,
+                        )
+                    )
+                )
+            }
+            discoverMovieHandler = { _, _ -> throw UnknownHostException("offline") }
+        }
+
+        val store = DiscoveryRepositoryStore(
+            mediaDao = mediaDao,
+            trendingCacheDao = trendingCacheDao,
+            genreMetadataDao = genreMetadataDao,
+            tmdbApiService = api,
+            nowProvider = { 7_000L },
+        )
+
+        val result = store.getMovieRecommendations(
+            apiKey = "key",
+            request = MovieRecommendationRequest(genreIds = listOf(18)),
+            trackedMediaKeys = emptySet(),
+        )
+
+        assertTrue(result is RecommendationResult.Error)
+        val error = result as RecommendationResult.Error
+        assertEquals(13, error.fallbackItems.first().tmdbId)
+        assertTrue(error.message.contains("Cannot reach TMDB"))
     }
 
     private class FakeMediaDao : MediaDao {
@@ -254,6 +408,37 @@ class DiscoveryRepositoryStoreTest {
         }
     }
 
+    private class FakeGenreMetadataDao : GenreMetadataDao {
+        private val rows = mutableListOf<GenreMetadataEntity>()
+
+        override suspend fun upsertAll(entities: List<GenreMetadataEntity>) {
+            entities.forEach { incoming ->
+                val existingIndex = rows.indexOfFirst {
+                    it.genreId == incoming.genreId && it.mediaType == incoming.mediaType
+                }
+                if (existingIndex >= 0) {
+                    rows[existingIndex] = incoming.copy(id = rows[existingIndex].id)
+                } else {
+                    rows += incoming.copy(id = (rows.size + 1).toLong())
+                }
+            }
+        }
+
+        override suspend fun getByMediaType(mediaType: String): List<GenreMetadataEntity> {
+            return rows.filter { it.mediaType == mediaType }
+        }
+
+        override suspend fun latestUpdatedAt(mediaType: String): Long? {
+            return rows.filter { it.mediaType == mediaType }.maxOfOrNull { it.updatedAt }
+        }
+
+        override suspend fun clearAll(): Int {
+            val size = rows.size
+            rows.clear()
+            return size
+        }
+    }
+
     private class FakeTmdbApiService : TmdbApiService {
         var trendingHandler: suspend (String) -> TmdbTrendingResponse = { TmdbTrendingResponse() }
         var searchHandler: suspend (String, String) -> TmdbMultiSearchResponse = { _, _ -> TmdbMultiSearchResponse() }
@@ -291,6 +476,18 @@ class DiscoveryRepositoryStoreTest {
                 genres = listOf(TmdbGenreDto(2, "Sci-Fi")),
             )
         }
+        var discoverMovieHandler: suspend (String, String) -> TmdbDiscoverMovieResponse = { _, _ ->
+            TmdbDiscoverMovieResponse()
+        }
+        var discoverTvHandler: suspend (String, String) -> TmdbDiscoverTvResponse = { _, _ ->
+            TmdbDiscoverTvResponse()
+        }
+        var movieGenresHandler: suspend (String) -> TmdbGenreListResponse = {
+            TmdbGenreListResponse(genres = listOf(TmdbGenreDto(18, "Drama")))
+        }
+        var tvGenresHandler: suspend (String) -> TmdbGenreListResponse = {
+            TmdbGenreListResponse(genres = listOf(TmdbGenreDto(10765, "Sci-Fi & Fantasy")))
+        }
 
         override suspend fun getTrendingAllDay(apiKey: String): TmdbTrendingResponse {
             return trendingHandler(apiKey)
@@ -312,6 +509,36 @@ class DiscoveryRepositoryStoreTest {
 
         override suspend fun getTvDetails(tvId: Int, apiKey: String): TmdbTvDetailsDto {
             return tvDetailsHandler(tvId, apiKey)
+        }
+
+        override suspend fun discoverMovies(
+            apiKey: String,
+            withGenres: String,
+            includeAdult: Boolean,
+            language: String,
+            sortBy: String,
+            page: Int,
+        ): TmdbDiscoverMovieResponse {
+            return discoverMovieHandler(apiKey, withGenres)
+        }
+
+        override suspend fun discoverTvShows(
+            apiKey: String,
+            withGenres: String,
+            includeAdult: Boolean,
+            language: String,
+            sortBy: String,
+            page: Int,
+        ): TmdbDiscoverTvResponse {
+            return discoverTvHandler(apiKey, withGenres)
+        }
+
+        override suspend fun getMovieGenres(apiKey: String, language: String): TmdbGenreListResponse {
+            return movieGenresHandler(apiKey)
+        }
+
+        override suspend fun getTvGenres(apiKey: String, language: String): TmdbGenreListResponse {
+            return tvGenresHandler(apiKey)
         }
     }
 }

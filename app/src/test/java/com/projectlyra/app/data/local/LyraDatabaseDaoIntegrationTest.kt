@@ -56,6 +56,46 @@ class LyraDatabaseDaoIntegrationTest {
     }
 
     @Test
+    fun getLatestItemByStatus_returnsMostRecentlyUpdatedRow() = runBlocking {
+        val olderId = db.mediaDao().upsertMediaItem(media(41, "TV", "Older"))
+        val newerId = db.mediaDao().upsertMediaItem(media(42, "TV", "Newer"))
+        db.userEntryDao().upsertUserEntry(
+            UserEntryEntity(mediaItemId = olderId, status = "WATCHING", addedAt = 1L, updatedAt = 10L)
+        )
+        db.userEntryDao().upsertUserEntry(
+            UserEntryEntity(mediaItemId = newerId, status = "WATCHING", addedAt = 1L, updatedAt = 20L)
+        )
+
+        val row = db.userEntryDao().getLatestItemByStatus("WATCHING")
+
+        assertEquals("Newer", row?.title)
+    }
+
+    @Test
+    fun getMediaGenresByStatus_filtersByMediaTypeAndStatus() = runBlocking {
+        val completedId = db.mediaDao().upsertMediaItem(media(51, "MOVIE", "Completed").copy(genreIdsCsv = "18,35"))
+        val completedTvId = db.mediaDao().upsertMediaItem(media(53, "TV", "Completed TV").copy(genreIdsCsv = "16,10765"))
+        val watchingId = db.mediaDao().upsertMediaItem(media(52, "MOVIE", "Watching").copy(genreIdsCsv = "99"))
+        db.userEntryDao().upsertUserEntry(
+            UserEntryEntity(mediaItemId = completedId, status = "COMPLETED", addedAt = 1L, updatedAt = 1L)
+        )
+        db.userEntryDao().upsertUserEntry(
+            UserEntryEntity(mediaItemId = completedTvId, status = "COMPLETED", addedAt = 1L, updatedAt = 1L)
+        )
+        db.userEntryDao().upsertUserEntry(
+            UserEntryEntity(mediaItemId = watchingId, status = "WATCHING", addedAt = 1L, updatedAt = 1L)
+        )
+
+        val movieRows = db.userEntryDao().getMediaGenresByStatus("COMPLETED", "MOVIE")
+        val tvRows = db.userEntryDao().getMediaGenresByStatus("COMPLETED", "TV")
+
+        assertEquals(1, movieRows.size)
+        assertEquals("18,35", movieRows.first().genreIdsCsv)
+        assertEquals(1, tvRows.size)
+        assertEquals("16,10765", tvRows.first().genreIdsCsv)
+    }
+
+    @Test
     fun getCachedTrending_returnsRowsByPosition() = runBlocking {
         val mediaOneId = db.mediaDao().upsertMediaItem(media(11, "MOVIE", "Second"))
         val mediaTwoId = db.mediaDao().upsertMediaItem(media(12, "TV", "First"))

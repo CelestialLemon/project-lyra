@@ -22,6 +22,8 @@ data class MediaItemEntity(
     val posterPath: String,
     @ColumnInfo(name = "release_or_air_date")
     val releaseOrAirDate: String,
+    @ColumnInfo(name = "genre_ids")
+    val genreIdsCsv: String = "",
     @ColumnInfo(name = "metadata_updated_at")
     val metadataUpdatedAt: Long,
 )
