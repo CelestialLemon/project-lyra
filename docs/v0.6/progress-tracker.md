@@ -59,9 +59,11 @@
 - [ ] Implement watched-up-to cascade mutation (`1..N`) for active season.
 - [ ] Implement unwatched-from cascade mutation (`N..end`) for active season.
 - [ ] Implement aired-only season-complete eligibility logic (missing date treated as eligible).
+- [ ] Ensure aired-only eligibility uses local device calendar date boundary (`LocalDate`).
 - [ ] Add TMDB TV season endpoint and DTOs.
 - [ ] Add season-episode domain models and mapper coverage.
 - [ ] Add repository contracts for season fetch and episode progress mutations/observation.
+- [ ] Add per-details-session in-memory season payload cache to avoid refetching already opened seasons.
 - [ ] Add Room watched-episodes entity and DAO.
 - [ ] Add Room migration `4 -> 5` and migration tests.
 - [ ] Update backup schema version to `2` and include watched episodes in export/import.

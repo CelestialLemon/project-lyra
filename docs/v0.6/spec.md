@@ -73,6 +73,7 @@
 - Season action:
   - `Mark season as complete` marks all eligible episodes watched.
   - Eligibility rule: `airDate <= today` OR missing `airDate`.
+  - `today` is evaluated as local device calendar date (`LocalDate`) to avoid time-of-day cutoff errors.
 - Show-level status remains independent from episode progress.
 - Clearing show status to `Not tracked` does not delete watched-episode progress.
 
@@ -141,6 +142,7 @@
 3. On season change:
    - Cancel old watcher.
    - Load new season episodes on demand.
+   - If a season was already loaded during this details session, reuse the in-memory season payload instead of refetching.
    - Observe watched set for the newly selected season.
 4. On episode action:
    - Apply repository mutation (watch-up-to or unwatched-from).
