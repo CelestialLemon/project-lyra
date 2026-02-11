@@ -3,7 +3,8 @@
 This folder contains active planning docs and archived release records.
 
 ## Live docs
-- No active release docs at the moment.
+- `v0.6/spec.md`
+- `v0.6/progress-tracker.md`
 
 ## Archived docs
 - `archive/mvp/mvp-spec.md`
