@@ -4,9 +4,9 @@
 
 - Version: `v0.6`
 - Start date: `2026-02-11`
-- Completion date: `TBD (awaiting manual QA + sign-off)`
+- Completion date: `2026-02-11`
 - Target: TV Details overhaul + episode-level watched progress tracking
-- Source of truth: `docs/v0.6/spec.md`
+- Source of truth: `docs/archive/v0.6/spec.md`
 
 ## Status legend
 
@@ -26,7 +26,7 @@
 | Watched episodes Room schema + migration v5 | Done | New `watched_episodes` table/DAO, DB version `5`, `MIGRATION_4_5`, migration test coverage |
 | Backup schema v2 support | Done | Backup schema `2` with watched episodes export/import + validation and restore-plan support |
 | Automated tests + regression validation | Done | Added/updated unit and integration tests for v0.6 flows; `testDebugUnitTest` + `lintDebug` passing |
-| QA + release sign-off | In Progress | Manual scenarios and final sign-off pending device walkthrough |
+| QA + release sign-off | Done | Manual scenarios completed and PL sign-off captured |
 
 ## Phased implementation plan
 
@@ -36,7 +36,7 @@
 | Phase 2: Seasons to episodes UX | Done | Season dropdown and episode list | Selector state flow, episode cards, section-level loading/error states | TV details renders episode-centric flow with stable season switching |
 | Phase 3: Episode progress logic | Done | Watched/unwatched and season-complete behavior | Overflow actions, cascade rules, aired-only completion logic | Cascade behavior verified for watched/unwatched and season complete |
 | Phase 4: Data contracts and persistence | Done | TMDB season endpoint + Room + backup | API DTOs, repository methods, watched table/DAO, migration v5, backup v2 | Episode progress persists across app restarts and backup restore |
-| Phase 5: Validation and sign-off | In Progress | Automated and manual validation | Test additions, run logs, QA checklist completion | All gates pass and release is signed off |
+| Phase 5: Validation and sign-off | Done | Automated and manual validation | Test additions, run logs, QA checklist completion | All gates pass and release is signed off |
 
 ## Phase checklist
 
@@ -44,7 +44,7 @@
 - [x] Phase 2 complete
 - [x] Phase 3 complete
 - [x] Phase 4 complete
-- [ ] Phase 5 complete
+- [x] Phase 5 complete
 
 ## Task checklist
 
@@ -73,29 +73,30 @@
 - [x] Add season API fetch success/error tests.
 - [x] Run and pass full unit test suite (`./gradlew testDebugUnitTest`).
 - [x] Run and pass lint checks (`./gradlew lintDebug`) with no blocking regressions.
-- [ ] Execute manual QA scenarios from `docs/v0.6/spec.md`.
+- [x] Execute manual QA scenarios from `docs/archive/v0.6/spec.md`.
 
 ## Release validation gates
 
 - [x] Gate 1: v0.6 feature-specific tests are present and passing.
 - [x] Gate 2: existing test suite continues to pass.
 - [x] Gate 3: lint passes with no blocking issues.
-- [ ] Gate 4: manual QA scenarios complete with no open blockers.
-- [ ] Gate 5: release sign-off captured.
+- [x] Gate 4: manual QA scenarios complete with no open blockers.
+- [x] Gate 5: release sign-off captured.
 
 ## Validation notes
 
 - `2026-02-11`: `./gradlew testDebugUnitTest` passed.
 - `2026-02-11`: `./gradlew lintDebug` passed.
-- Manual QA scenarios remain pending for device walkthrough/sign-off.
+- `2026-02-11`: Manual QA scenarios completed during PL walkthrough.
+- `2026-02-11`: Release sign-off captured.
 
 ## Risks / watch items
 
 - On-demand season fetch may create noticeable loading states on poor networks.
 - TMDB payload variability (missing still/runtime/air date) can impact episode card consistency without robust fallback handling.
-- Manual QA coverage is pending and required before release sign-off.
 
 ## Change log
 
 - `2026-02-11`: Implemented v0.6 TV details episode-centric UX, season fetch contract, watched-episode persistence, backup schema v2, and automated test coverage.
-- `2026-02-11`: Validation pass completed for unit tests + lint; manual QA/sign-off left open.
+- `2026-02-11`: Validation pass completed for unit tests + lint.
+- `2026-02-11`: Manual QA completed and release signed off by PL.

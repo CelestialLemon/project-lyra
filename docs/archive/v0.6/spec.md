@@ -200,5 +200,5 @@
 
 - All acceptance criteria in this spec are met.
 - Automated tests listed above are implemented and passing.
-- `docs/v0.6/progress-tracker.md` is fully updated to final release state.
+- `docs/archive/v0.6/progress-tracker.md` is fully updated to final release state.
 - Manual QA scenarios are executed and signed off.
