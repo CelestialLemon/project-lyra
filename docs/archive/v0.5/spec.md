@@ -94,4 +94,4 @@
   - personalized movie rail,
   - personalized TV rail,
   - empty-profile and network-fallback states.
-- `docs/v0.5/progress-tracker.md` updated with final status and completion notes.
+- `docs/archive/v0.5/progress-tracker.md` updated with final status and completion notes.

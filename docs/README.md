@@ -3,8 +3,7 @@
 This folder contains active planning docs and archived release records.
 
 ## Live docs
-- `v0.5/spec.md` - Planned Home + Discover personalization release scope (active)
-- `v0.5/progress-tracker.md` - v0.5 implementation tracker (active)
+- No active release docs at the moment.
 
 ## Archived docs
 - `archive/mvp/mvp-spec.md`
@@ -14,5 +13,9 @@ This folder contains active planning docs and archived release records.
 - `archive/v0.2/progress-tracker.md`
 - `archive/v0.3/spec.md`
 - `archive/v0.3/progress-tracker.md`
+- `archive/v0.4/spec.md`
+- `archive/v0.4/progress-tracker.md`
+- `archive/v0.5/spec.md`
+- `archive/v0.5/progress-tracker.md`
 
 Archived docs are kept for release history and reference.
