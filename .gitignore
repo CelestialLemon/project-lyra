@@ -24,6 +24,11 @@ captures/
 *.keystore
 *.pem
 
+# Local secrets
+.env
+.env.*
+*.secret
+
 # OS files
 .DS_Store
 Thumbs.db

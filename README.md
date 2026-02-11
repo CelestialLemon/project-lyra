@@ -1,44 +1,72 @@
 # Project Lyra
 
-Android-first, local-first movie and TV tracking app.
+Project Lyra is an Android app for tracking movies and TV shows with a local-first workflow.
 
-## Current State
-This repository contains the MVP scaffold with:
-- Kotlin + Jetpack Compose app shell
-- Bottom navigation: Home, Search, My List, Settings
-- Cinematic poster-first Home with live TMDB trending feed
-- Search tab with live TMDB multi-search, debounced query UX, and quick status actions
-- Home loading/error/retry handling plus Room-backed trending cache fallback
-- Full Details screen with TMDB metadata, status controls, and TV season/episode info
-- Room database entities/DAOs for tracked items
-- Settings with Keystore-encrypted TMDB API key + DataStore toggles
-- Daily episode reminder worker with notification channel + payloads
-- Reminder-state persistence for "new since last check" detection
-- Auto move from `Completed` to `On Hold` when a new TV season is detected
-- JSON backup export/import in Settings with schema validation and optional API key inclusion
-- New adaptive launcher icon foreground + Android 13+ monochrome assets
-- Dynamic system accent support (Android 12+) with DataStore-persisted toggle in Settings
+## Highlights
+- Kotlin + Jetpack Compose UI with Home, Search, My List, Details, and Settings flows
+- TMDB-powered discovery, search, details, and recommendations
+- Local persistence with Room, including watched-episode tracking and reminder state
+- Keystore-encrypted TMDB API key storage
+- WorkManager-based daily episode reminders
+- JSON backup and restore with validation and optional API key export
 
-## Prerequisites
-- JDK 21 (recommended for Android build stability)
-- Android SDK with `platform-tools`, `platforms;android-36`, `build-tools;36.0.0`
-- Connected Android device (Pixel 7a works)
+## Tech Stack
+- Kotlin
+- Jetpack Compose + Material 3
+- Room
+- DataStore
+- WorkManager
+- Retrofit + Moshi
 
-## One-Time: Generate Gradle Wrapper
-This repo was scaffolded in a terminal environment without global Gradle. Run once:
+## Requirements
+- macOS/Linux/Windows with Android tooling
+- JDK 17 or newer
+- Android SDK for API 36
+- Android Studio (recommended) or CLI Android SDK tools
 
-```bash
-brew install gradle
-gradle wrapper --gradle-version 8.10.2
-```
+## Quick Start
+1. Clone the repository.
+2. Build the app:
+   ```bash
+   ./gradlew assembleDebug
+   ```
+3. Install on a connected device/emulator:
+   ```bash
+   ./gradlew installDebug
+   ```
+4. Open the app and set your TMDB v3 API key in `Settings`.
 
-## Build + Install
-```bash
-./gradlew assembleDebug
-./gradlew installDebug
-adb devices
-adb logcat
-```
+## TMDB API Key
+Project Lyra requires your own TMDB API key to fetch online metadata.
 
-## Next Milestones
-1. Add automated tests for repository, settings, backup/restore, and feature flows.
+1. Create an account at [TMDB](https://www.themoviedb.org/).
+2. Generate a v3 API key.
+3. Enter the key in the app settings.
+
+The key is encrypted with Android Keystore before persistence.
+
+## Build and Test Commands
+- Build debug APK: `./gradlew assembleDebug`
+- Run unit tests: `./gradlew testDebugUnitTest`
+- Run lint: `./gradlew lintDebug`
+- Run instrumentation tests: `./gradlew connectedDebugAndroidTest`
+
+## Project Layout
+- App code: `app/`
+- Build configuration: `build.gradle.kts`, `settings.gradle.kts`, `app/build.gradle.kts`
+- Documentation: `docs/`
+
+## Documentation
+- Current planning/release docs live under `docs/<release_version>/` when active.
+- Historical release docs are in `docs/archive/`.
+
+## Privacy and Data
+- Core tracking data is stored locally on device.
+- Backups are user-initiated.
+- API key export in backups is opt-in.
+
+## TMDB Attribution
+This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+## License
+Released under the MIT License. See `LICENSE`.
