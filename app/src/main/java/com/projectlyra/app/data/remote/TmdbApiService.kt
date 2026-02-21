@@ -24,12 +24,14 @@ interface TmdbApiService {
     suspend fun getMovieDetails(
         @Path("movie_id") movieId: Int,
         @Query("api_key") apiKey: String,
+        @Query("append_to_response") appendToResponse: String = "credits",
     ): TmdbMovieDetailsDto
 
     @GET("tv/{tv_id}")
     suspend fun getTvDetails(
         @Path("tv_id") tvId: Int,
         @Query("api_key") apiKey: String,
+        @Query("append_to_response") appendToResponse: String = "credits",
     ): TmdbTvDetailsDto
 
     @GET("tv/{tv_id}/season/{season_number}")
@@ -167,6 +169,7 @@ data class TmdbMovieDetailsDto(
     val releaseDate: String?,
     val runtime: Int?,
     val genres: List<TmdbGenreDto>?,
+    val credits: TmdbCreditsDto?,
 )
 
 data class TmdbTvDetailsDto(
@@ -185,6 +188,19 @@ data class TmdbTvDetailsDto(
     val numberOfEpisodes: Int?,
     val seasons: List<TmdbSeasonDto>?,
     val genres: List<TmdbGenreDto>?,
+    val credits: TmdbCreditsDto?,
+)
+
+data class TmdbCreditsDto(
+    val cast: List<TmdbCastMemberDto>?,
+)
+
+data class TmdbCastMemberDto(
+    val id: Int?,
+    val name: String?,
+    val character: String?,
+    @Json(name = "profile_path")
+    val profilePath: String?,
 )
 
 data class TmdbSeasonDto(

@@ -1,5 +1,6 @@
 package com.projectlyra.app.data.repository
 
+import com.projectlyra.app.core.model.CastMemberSummary
 import com.projectlyra.app.core.model.MediaDetails
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.SeasonSummary
@@ -150,6 +151,7 @@ internal fun TmdbMovieDetailsDto.toDomainOrNull(): MediaDetails? {
         genres = genres.orEmpty().mapNotNull { dto -> dto.name?.trim()?.takeIf { it.isNotEmpty() } },
         genreIds = genres.orEmpty().map { it.id }.filter { it > 0 }.distinct(),
         runtimeMinutes = runtime?.takeIf { it > 0 },
+        cast = credits.toDomainCast(),
     )
 }
 
@@ -187,7 +189,25 @@ internal fun TmdbTvDetailsDto.toDomainOrNull(): MediaDetails? {
         numberOfSeasons = numberOfSeasons?.takeIf { it >= 0 } ?: mappedSeasons.size,
         numberOfEpisodes = numberOfEpisodes?.takeIf { it >= 0 },
         seasons = mappedSeasons,
+        cast = credits.toDomainCast(),
     )
+}
+
+private fun com.projectlyra.app.data.remote.TmdbCreditsDto?.toDomainCast(): List<CastMemberSummary> {
+    return this?.cast.orEmpty()
+        .mapNotNull { member ->
+            val id = member.id ?: return@mapNotNull null
+            val name = member.name?.trim().orEmpty()
+            if (name.isEmpty()) {
+                return@mapNotNull null
+            }
+            CastMemberSummary(
+                id = id,
+                name = name,
+                character = member.character?.trim()?.takeIf { it.isNotEmpty() },
+                profilePath = member.profilePath?.trim()?.takeIf { it.isNotEmpty() },
+            )
+        }
 }
 
 internal fun TmdbTvSeasonDetailsDto.toDomainOrNull(tvId: Int, fallbackSeasonNumber: Int): TvSeasonDetails? {

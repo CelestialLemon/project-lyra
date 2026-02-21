@@ -123,8 +123,30 @@ class DetailsViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(0, state.selectedSeasonNumber)
+        assertEquals(DetailsContentTab.SEASONS, state.selectedContentTab)
         assertEquals(1, state.selectedSeasonEpisodes.size)
         assertEquals(setOf(1), state.watchedEpisodeNumbers)
+    }
+
+    @Test
+    fun refresh_movieDetails_defaultsToCastTab() = runTest {
+        val repository = mockk<LibraryRepository>()
+        val settingsStore = mockk<SettingsStore>()
+        every { settingsStore.settings } returns flowOf(AppSettings(apiKey = "key"))
+        every { repository.observeTrackedStatusesByMediaKey() } returns flowOf(emptyMap())
+        coEvery {
+            repository.getMediaDetails(apiKey = "key", tmdbId = 7, mediaType = MediaType.MOVIE)
+        } returns MediaDetailsResult.Success(details = sampleMovieDetails())
+
+        val viewModel = DetailsViewModel(
+            tmdbId = 7,
+            mediaType = MediaType.MOVIE,
+            libraryRepository = repository,
+            settingsStore = settingsStore,
+        )
+        advanceUntilIdle()
+
+        assertEquals(DetailsContentTab.CAST, viewModel.uiState.value.selectedContentTab)
     }
 
     @Test

@@ -14,6 +14,14 @@ data class MediaDetails(
     val numberOfSeasons: Int? = null,
     val numberOfEpisodes: Int? = null,
     val seasons: List<SeasonSummary> = emptyList(),
+    val cast: List<CastMemberSummary> = emptyList(),
+)
+
+data class CastMemberSummary(
+    val id: Int,
+    val name: String,
+    val character: String?,
+    val profilePath: String?,
 )
 
 data class SeasonSummary(
