@@ -37,6 +37,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -54,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.projectlyra.app.core.model.CastMemberSummary
 import com.projectlyra.app.core.model.MediaDetails
 import com.projectlyra.app.core.model.MediaType
 import com.projectlyra.app.core.model.SeasonSummary
@@ -80,6 +83,7 @@ fun DetailsRoute(
         onBack = onBack,
         onRetry = viewModel::refresh,
         onStatusSelected = viewModel::onStatusSelected,
+        onContentTabSelected = viewModel::onContentTabSelected,
         onSeasonSelected = viewModel::onSeasonSelected,
         onRetrySeason = viewModel::retrySelectedSeason,
         onMarkEpisodeWatchedUpTo = viewModel::onMarkEpisodeWatchedUpTo,
@@ -94,6 +98,7 @@ private fun DetailsScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onStatusSelected: (WatchStatus?) -> Unit,
+    onContentTabSelected: (DetailsContentTab) -> Unit,
     onSeasonSelected: (Int) -> Unit,
     onRetrySeason: () -> Unit,
     onMarkEpisodeWatchedUpTo: (Int) -> Unit,
@@ -178,84 +183,102 @@ private fun DetailsScreen(
 
         if (details.mediaType == MediaType.TV) {
             item {
-                TvSeasonsSectionHeader()
-            }
-
-            item {
-                SeasonSelector(
-                    seasons = uiState.seasons,
-                    selectedSeasonNumber = uiState.selectedSeasonNumber,
-                    onSeasonSelected = onSeasonSelected,
+                DetailsContentTabs(
+                    selectedTab = uiState.selectedContentTab,
+                    hasSeasons = uiState.seasons.isNotEmpty(),
+                    onTabSelected = onContentTabSelected,
                 )
             }
 
-            item {
-                FilledTonalButton(
-                    onClick = onMarkSeasonComplete,
-                    enabled = uiState.selectedSeasonNumber != null &&
-                        uiState.selectedSeasonEpisodes.isNotEmpty() &&
-                        !uiState.isSeasonLoading,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth(),
-                ) {
-                    Text(text = "Mark season as complete")
-                }
-            }
-
-            if (uiState.isSeasonLoading) {
+            if (uiState.selectedContentTab == DetailsContentTab.SEASONS) {
                 item {
-                    Box(
+                    TvSeasonsSectionHeader()
+                }
+
+                item {
+                    SeasonSelector(
+                        seasons = uiState.seasons,
+                        selectedSeasonNumber = uiState.selectedSeasonNumber,
+                        onSeasonSelected = onSeasonSelected,
+                    )
+                }
+
+                item {
+                    FilledTonalButton(
+                        onClick = onMarkSeasonComplete,
+                        enabled = uiState.selectedSeasonNumber != null &&
+                            uiState.selectedSeasonEpisodes.isNotEmpty() &&
+                            !uiState.isSeasonLoading,
                         modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = 16.dp)
                             .fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
                     ) {
-                        CircularProgressIndicator()
+                        Text(text = "Mark season as complete")
                     }
                 }
-            }
 
-            if (uiState.seasonErrorMessage != null) {
-                item {
-                    SeasonErrorState(
-                        message = uiState.seasonErrorMessage,
-                        onRetry = onRetrySeason,
-                    )
+                if (uiState.isSeasonLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
                 }
-            }
 
-            if (uiState.episodeMutationErrorMessage != null) {
-                item {
-                    Text(
-                        text = uiState.episodeMutationErrorMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
+                if (uiState.seasonErrorMessage != null) {
+                    item {
+                        SeasonErrorState(
+                            message = uiState.seasonErrorMessage,
+                            onRetry = onRetrySeason,
+                        )
+                    }
                 }
-            }
 
-            if (!uiState.isSeasonLoading && uiState.seasonErrorMessage == null) {
-                if (uiState.selectedSeasonEpisodes.isEmpty()) {
+                if (uiState.episodeMutationErrorMessage != null) {
                     item {
                         Text(
-                            text = "No episodes available for the selected season.",
+                            text = uiState.episodeMutationErrorMessage,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
                     }
-                } else {
-                    items(uiState.selectedSeasonEpisodes, key = { episode -> episode.episodeId }) { episode ->
-                        EpisodeCard(
-                            episode = episode,
-                            isWatched = episode.episodeNumber in uiState.watchedEpisodeNumbers,
-                            onMarkWatchedUpTo = { onMarkEpisodeWatchedUpTo(episode.episodeNumber) },
-                            onMarkUnwatchedFrom = { onMarkEpisodeUnwatchedFrom(episode.episodeNumber) },
-                        )
+                }
+
+                if (!uiState.isSeasonLoading && uiState.seasonErrorMessage == null) {
+                    if (uiState.selectedSeasonEpisodes.isEmpty()) {
+                        item {
+                            Text(
+                                text = "No episodes available for the selected season.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                            )
+                        }
+                    } else {
+                        items(uiState.selectedSeasonEpisodes, key = { episode -> episode.episodeId }) { episode ->
+                            EpisodeCard(
+                                episode = episode,
+                                isWatched = episode.episodeNumber in uiState.watchedEpisodeNumbers,
+                                onMarkWatchedUpTo = { onMarkEpisodeWatchedUpTo(episode.episodeNumber) },
+                                onMarkUnwatchedFrom = { onMarkEpisodeUnwatchedFrom(episode.episodeNumber) },
+                            )
+                        }
                     }
                 }
+            } else {
+                item {
+                    CastSection(castMembers = details.cast)
+                }
+            }
+        } else {
+            item {
+                CastSection(castMembers = details.cast)
             }
         }
     }
@@ -472,6 +495,107 @@ private fun MetadataLabel(label: String, value: String) {
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium,
         )
+    }
+}
+
+@Composable
+private fun DetailsContentTabs(
+    selectedTab: DetailsContentTab,
+    hasSeasons: Boolean,
+    onTabSelected: (DetailsContentTab) -> Unit,
+) {
+    val tabs = if (hasSeasons) {
+        listOf(DetailsContentTab.SEASONS, DetailsContentTab.CAST)
+    } else {
+        listOf(DetailsContentTab.CAST)
+    }
+    val selectedIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
+    TabRow(
+        selectedTabIndex = selectedIndex,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) {
+        tabs.forEachIndexed { index, tab ->
+            Tab(
+                selected = selectedIndex == index,
+                onClick = { onTabSelected(tab) },
+                text = { Text(if (tab == DetailsContentTab.SEASONS) "Seasons" else "Cast") },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CastSection(castMembers: List<CastMemberSummary>) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Cast",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+
+        if (castMembers.isEmpty()) {
+            Text(
+                text = "Cast information is unavailable.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        } else {
+            castMembers.forEach { member ->
+                CastMemberCard(member = member)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CastMemberCard(member: CastMemberSummary) {
+    Card(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!member.profilePath.isNullOrBlank()) {
+                AsyncImage(
+                    model = "https://image.tmdb.org/t/p/w185${member.profilePath}",
+                    contentDescription = member.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = member.name.take(1).uppercase())
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = member.name,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = member.character ?: "Character unknown",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

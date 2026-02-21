@@ -25,10 +25,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class DetailsContentTab {
+    SEASONS,
+    CAST,
+}
+
 data class DetailsUiState(
     val isLoading: Boolean = true,
     val details: MediaDetails? = null,
     val seasons: List<SeasonSummary> = emptyList(),
+    val selectedContentTab: DetailsContentTab = DetailsContentTab.CAST,
     val selectedSeasonNumber: Int? = null,
     val selectedSeasonEpisodes: List<TvEpisodeDetails> = emptyList(),
     val watchedEpisodeNumbers: Set<Int> = emptySet(),
@@ -74,6 +80,11 @@ class DetailsViewModel(
                             seasons = sortedSeasons,
                             infoMessage = null,
                             errorMessage = null,
+                            selectedContentTab = if (mediaType == MediaType.TV && sortedSeasons.isNotEmpty()) {
+                                DetailsContentTab.SEASONS
+                            } else {
+                                DetailsContentTab.CAST
+                            },
                             selectedSeasonNumber = sortedSeasons.firstOrNull()?.seasonNumber,
                             selectedSeasonEpisodes = emptyList(),
                             watchedEpisodeNumbers = emptySet(),
@@ -108,6 +119,11 @@ class DetailsViewModel(
                             } else {
                                 "Set a TMDB API key in Settings to load title details."
                             },
+                            selectedContentTab = if (mediaType == MediaType.TV && sortedSeasons.isNotEmpty()) {
+                                DetailsContentTab.SEASONS
+                            } else {
+                                DetailsContentTab.CAST
+                            },
                             selectedSeasonNumber = sortedSeasons.firstOrNull()?.seasonNumber,
                             selectedSeasonEpisodes = emptyList(),
                             watchedEpisodeNumbers = emptySet(),
@@ -138,6 +154,11 @@ class DetailsViewModel(
                                 null
                             },
                             errorMessage = if (fallback != null) null else result.message,
+                            selectedContentTab = if (mediaType == MediaType.TV && sortedSeasons.isNotEmpty()) {
+                                DetailsContentTab.SEASONS
+                            } else {
+                                DetailsContentTab.CAST
+                            },
                             selectedSeasonNumber = sortedSeasons.firstOrNull()?.seasonNumber,
                             selectedSeasonEpisodes = emptyList(),
                             watchedEpisodeNumbers = emptySet(),
@@ -173,6 +194,10 @@ class DetailsViewModel(
                 libraryRepository.upsertTrackedStatus(item = details!!.asTrendingItem(), status = status)
             }
         }
+    }
+
+    fun onContentTabSelected(tab: DetailsContentTab) {
+        _uiState.update { it.copy(selectedContentTab = tab) }
     }
 
     fun onSeasonSelected(seasonNumber: Int) {
@@ -304,6 +329,7 @@ class DetailsViewModel(
 
         _uiState.update {
             it.copy(
+                selectedContentTab = DetailsContentTab.SEASONS,
                 selectedSeasonNumber = selected,
                 selectedSeasonEpisodes = seasonCache[selected]?.episodes.orEmpty(),
                 watchedEpisodeNumbers = emptySet(),
