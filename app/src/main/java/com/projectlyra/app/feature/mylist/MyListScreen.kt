@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
@@ -32,12 +33,15 @@ fun MyListRoute(
     viewModel: MyListViewModel = viewModel(factory = factory),
 ) {
     val selectedStatus by viewModel.status.collectAsState()
+    val selectedMediaFilter by viewModel.mediaFilter.collectAsState()
     val items by viewModel.items.collectAsState()
 
     MyListScreen(
         selectedStatus = selectedStatus,
+        selectedMediaFilter = selectedMediaFilter,
         items = items,
         onStatusChange = viewModel::onStatusSelected,
+        onMediaFilterChange = viewModel::onMediaFilterSelected,
         onOpenDetails = onOpenDetails,
     )
 }
@@ -45,8 +49,10 @@ fun MyListRoute(
 @Composable
 private fun MyListScreen(
     selectedStatus: WatchStatus,
+    selectedMediaFilter: MediaFilter,
     items: List<TrackedItem>,
     onStatusChange: (WatchStatus) -> Unit,
+    onMediaFilterChange: (MediaFilter) -> Unit,
     onOpenDetails: (TrackedItem) -> Unit,
 ) {
     val statuses = WatchStatus.entries
@@ -100,6 +106,14 @@ private fun MyListScreen(
             }
         }
 
+
+        item {
+            MediaFilterRow(
+                selectedMediaFilter = selectedMediaFilter,
+                onMediaFilterChange = onMediaFilterChange,
+            )
+        }
+
         if (items.isEmpty()) {
             item {
                 Text(
@@ -114,6 +128,34 @@ private fun MyListScreen(
                 TrackedItemCard(
                     item = item,
                     onOpenDetails = { onOpenDetails(item) },
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun MediaFilterRow(
+    selectedMediaFilter: MediaFilter,
+    onMediaFilterChange: (MediaFilter) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Type",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        androidx.compose.foundation.layout.Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MediaFilter.entries.forEach { mediaFilter ->
+                FilterChip(
+                    selected = selectedMediaFilter == mediaFilter,
+                    onClick = { onMediaFilterChange(mediaFilter) },
+                    label = { Text(mediaFilter.label) },
                 )
             }
         }

@@ -23,6 +23,50 @@ class MyListViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
+
+    @Test
+    fun mediaFilter_defaultsToBoth() = runTest {
+        val repository = mockk<LibraryRepository>()
+        every { repository.observeByStatus(WatchStatus.WATCHING) } returns flowOf(
+            listOf(
+                sampleTrackedItem(1, WatchStatus.WATCHING, MediaType.MOVIE),
+                sampleTrackedItem(2, WatchStatus.WATCHING, MediaType.TV),
+            )
+        )
+
+        val viewModel = MyListViewModel(repository)
+
+        assertEquals(MediaFilter.BOTH, viewModel.mediaFilter.first())
+        assertEquals(2, viewModel.items.first { it.isNotEmpty() }.size)
+    }
+
+    @Test
+    fun onMediaFilterSelected_filtersItemsByType() = runTest {
+        val repository = mockk<LibraryRepository>()
+        every { repository.observeByStatus(WatchStatus.WATCHING) } returns flowOf(
+            listOf(
+                sampleTrackedItem(1, WatchStatus.WATCHING, MediaType.MOVIE),
+                sampleTrackedItem(2, WatchStatus.WATCHING, MediaType.TV),
+            )
+        )
+
+        val viewModel = MyListViewModel(repository)
+
+        viewModel.onMediaFilterSelected(MediaFilter.SHOWS)
+        advanceUntilIdle()
+        assertEquals(
+            listOf(MediaType.TV),
+            viewModel.items.first { rows -> rows.size == 1 }.map { item -> item.mediaType },
+        )
+
+        viewModel.onMediaFilterSelected(MediaFilter.MOVIES)
+        advanceUntilIdle()
+        assertEquals(
+            listOf(MediaType.MOVIE),
+            viewModel.items.first { rows -> rows.size == 1 }.map { item -> item.mediaType },
+        )
+    }
+
     @Test
     fun onStatusSelected_switchesObservedFlow() = runTest {
         val repository = mockk<LibraryRepository>()
@@ -72,11 +116,15 @@ class MyListViewModelTest {
         coVerify(exactly = 1) { repository.removeTrackedItem(mediaItemId = 5L) }
     }
 
-    private fun sampleTrackedItem(localId: Long, status: WatchStatus): TrackedItem {
+    private fun sampleTrackedItem(
+        localId: Long,
+        status: WatchStatus,
+        mediaType: MediaType = MediaType.TV,
+    ): TrackedItem {
         return TrackedItem(
             localId = localId,
             tmdbId = localId.toInt(),
-            mediaType = MediaType.TV,
+            mediaType = mediaType,
             title = "Title $localId",
             overview = "Overview",
             posterPath = "/poster.jpg",
